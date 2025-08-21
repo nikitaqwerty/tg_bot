@@ -1,0 +1,90 @@
+# Telegram Event Bot - Cursor Rules
+
+## Project Overview
+A Telegram bot for event management in closed channels with user registration, notifications, and admin functionality using python-telegram-bot framework.
+
+## Core Technologies
+- **Framework**: python-telegram-bot (PTB v20+)
+- **Database**: SQLite for simplicity and portability
+- **Python Version**: 3.8+
+- **Architecture**: Async/await pattern
+
+## Code Style & Patterns
+
+### General Guidelines
+- Follow PEP 8 style guide
+- Use type hints for function parameters and returns
+- Prefer async/await over callbacks
+- Use descriptive variable names
+- Keep functions focused and single-purpose
+
+### Bot Structure
+- Use class-based organization for the main bot
+- Separate handlers by functionality (admin, user, callbacks)
+- Use dependency injection for configuration
+- Implement proper error handling and logging
+
+### Database Patterns
+- Use context managers for database connections
+- Implement proper transaction handling
+- Use parameterized queries to prevent SQL injection
+- Keep database schema simple and normalized
+
+### Telegram Bot Patterns
+- Use InlineKeyboardMarkup for interactive buttons
+- Implement proper callback query handling
+- Use callback_data prefixes for different actions
+- Handle user permissions with decorator patterns
+- Implement proper message formatting with parse_mode
+
+## File Organization
+```
+project/
+├── bot.py              # Main bot implementation
+├── config.py           # Configuration management
+├── database.py         # Database operations
+├── handlers/           # Command and callback handlers
+├── utils/              # Utility functions
+├── requirements.txt    # Dependencies
+└── .env               # Environment variables
+```
+
+## Security Considerations
+- Validate all user inputs
+- Use environment variables for sensitive data
+- Implement proper admin permission checks
+- Sanitize callback data
+- Use rate limiting for user actions
+
+## Error Handling
+- Wrap async operations in try-catch blocks
+- Log errors with appropriate detail level
+- Provide user-friendly error messages
+- Implement graceful degradation
+
+## Testing Approach
+- Write unit tests for business logic
+- Mock Telegram API calls in tests
+- Test database operations with temporary databases
+- Implement integration tests for complete workflows
+
+## Environment Variables Required
+```
+BOT_TOKEN=your_bot_token
+ADMIN_IDS=123456789,987654321
+CHANNEL_ID=@your_channel
+```
+
+## Key Features to Maintain
+- Event creation and management
+- User registration with inline buttons
+- Admin panel with proper permissions
+- Notification system for all registered users
+- Registration tracking and reporting
+
+## Best Practices
+- Use logging instead of print statements
+- Implement proper shutdown handling
+- Use connection pooling for database
+- Cache frequently accessed data
+- Implement proper backup strategies

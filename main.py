@@ -124,68 +124,77 @@ class EventBot:
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start command handler"""
         await update.message.reply_text(
-            "Welcome to Event Registration Bot! 🎉\n\n"
-            "Use /events to see available events and register.\n\n"
-            "💡 *Important:* You need to start a conversation with this bot (by sending /start) "
-            "to receive event notifications and reminders!"
+            "Добро пожаловать в бота регистрации на мероприятия! 🎉\n\n"
+            "Используйте /events для просмотра доступных мероприятий и регистрации.\n\n"
+            "💡 *Важно:* Вам нужно начать разговор с этим ботом (отправив /start) "
+            "чтобы получать уведомления и напоминания о мероприятиях!"
         )
 
     async def admin_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Admin menu"""
         if not self.is_admin(update.effective_user.id):
-            await update.message.reply_text("❌ Access denied. Admin only.")
+            await update.message.reply_text(
+                "❌ Доступ запрещен. Только для администраторов."
+            )
             return
 
         keyboard = [
-            [InlineKeyboardButton("📅 Create Event", callback_data="admin_create")],
-            [InlineKeyboardButton("📋 List Events", callback_data="admin_list")],
             [
                 InlineKeyboardButton(
-                    "👥 View Registrations", callback_data="admin_registrations"
+                    "📅 Создать мероприятие", callback_data="admin_create"
+                )
+            ],
+            [InlineKeyboardButton("📋 Список мероприятий", callback_data="admin_list")],
+            [
+                InlineKeyboardButton(
+                    "👥 Просмотр регистраций", callback_data="admin_registrations"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "📢 Send Notifications", callback_data="admin_notify"
+                    "📢 Отправить уведомления", callback_data="admin_notify"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "🎫 Post Event Card", callback_data="admin_post_card"
+                    "🎫 Опубликовать карточку мероприятия",
+                    callback_data="admin_post_card",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "📊 View RSVP Stats", callback_data="admin_rsvp_stats"
+                    "📊 Статистика RSVP", callback_data="admin_rsvp_stats"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "🔍 Check User Status", callback_data="admin_check_users"
+                    "🔍 Проверить статус пользователей",
+                    callback_data="admin_check_users",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "🔍 Check User Status", callback_data="admin_check_users"
+                    "🔍 Проверить статус пользователей",
+                    callback_data="admin_check_users",
                 )
             ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await update.message.reply_text(
-            "🔧 Admin Panel\nSelect an action:", reply_markup=reply_markup
+            "🔧 Панель администратора\nВыберите действие:", reply_markup=reply_markup
         )
 
     async def create_event(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Create new event - Admin only"""
         if not self.is_admin(update.effective_user.id):
-            await update.message.reply_text("❌ Access denied.")
+            await update.message.reply_text("❌ Доступ запрещен.")
             return
 
         if len(context.args) < 3:
             await update.message.reply_text(
-                "Usage: /create_event <title> <date:YYYY-MM-DD> <description>\n"
-                "Example: /create_event 'Team Meeting' 2024-12-25 'Monthly team sync'"
+                "Использование: /create_event <название> <дата:ГГГГ-ММ-ДД> <описание>\n"
+                "Пример: /create_event 'Командная встреча' 2024-12-25 'Ежемесячная синхронизация команды'"
             )
             return
 
@@ -212,12 +221,16 @@ class EventBot:
                 update, event_id, title, description, event_date
             )
 
-            await update.message.reply_text(f"✅ Event '{title}' created successfully!")
+            await update.message.reply_text(
+                f"✅ Мероприятие '{title}' успешно создано!"
+            )
 
         except ValueError:
-            await update.message.reply_text("❌ Invalid date format. Use YYYY-MM-DD")
+            await update.message.reply_text(
+                "❌ Неверный формат даты. Используйте ГГГГ-ММ-ДД"
+            )
         except Exception as e:
-            await update.message.reply_text(f"❌ Error creating event: {str(e)}")
+            await update.message.reply_text(f"❌ Ошибка создания мероприятия: {str(e)}")
 
     async def post_event_in_chat(
         self,
@@ -229,11 +242,15 @@ class EventBot:
     ):
         """Post event in the current chat with registration button"""
         keyboard = [
-            [InlineKeyboardButton("📝 Register", callback_data=f"register_{event_id}")]
+            [
+                InlineKeyboardButton(
+                    "📝 Зарегистрироваться", callback_data=f"register_{event_id}"
+                )
+            ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        message = f"🎉 *{title}*\n\n📅 Date: {event_date}\n📝 {description}\n\nClick below to register!"
+        message = f"🎉 *{title}*\n\n📅 Дата: {event_date}\n📝 {description}\n\nНажмите ниже для регистрации!"
 
         await update.message.reply_text(
             text=message, parse_mode="Markdown", reply_markup=reply_markup
@@ -250,7 +267,7 @@ class EventBot:
         conn.close()
 
         if not events:
-            await update.message.reply_text("No active events available.")
+            await update.message.reply_text("Нет доступных активных мероприятий.")
             return
 
         keyboard = []
@@ -265,7 +282,7 @@ class EventBot:
 
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(
-            "📅 Available Events:", reply_markup=reply_markup
+            "📅 Доступные мероприятия:", reply_markup=reply_markup
         )
 
     async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -292,7 +309,7 @@ class EventBot:
         elif query.data.startswith("create_"):
             await self.handle_event_creation_step(query)
         else:
-            logger.warning(f"Unknown callback data: {query.data}")
+            logger.warning(f"Неизвестные данные обратного вызова: {query.data}")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle text messages for event creation"""
@@ -325,7 +342,7 @@ class EventBot:
             )
             # Provide helpful feedback to admin users
             await update.message.reply_text(
-                "💡 Tip: Use /admin to access the admin panel and create events."
+                "💡 Совет: Используйте /admin для доступа к панели администратора и создания мероприятий."
             )
 
     async def handle_event_creation_input(self, update: Update, user_id: int):
@@ -374,10 +391,10 @@ class EventBot:
             )
         else:
             logger.warning(
-                f"Unexpected input state for user {user_id}: waiting_for={waiting_for}"
+                f"Неожиданное состояние ввода для пользователя {user_id}: waiting_for={waiting_for}"
             )
             await update.message.reply_text(
-                "❌ Unexpected input. Please use /admin to access the creation menu."
+                "❌ Неожиданный ввод. Используйте /admin для доступа к меню создания."
             )
 
     async def handle_notification_input(self, update: Update, user_id: int):
@@ -394,7 +411,7 @@ class EventBot:
 
             if not event_id:
                 await update.message.reply_text(
-                    "❌ Error: No event selected. Please try again."
+                    "❌ Ошибка: Мероприятие не выбрано. Попробуйте снова."
                 )
                 self.user_data[user_id]["creating_notification"] = False
                 self.user_data[user_id]["waiting_for"] = None
@@ -409,10 +426,10 @@ class EventBot:
             self.user_data[user_id]["notify_event_id"] = None
         else:
             logger.warning(
-                f"Unexpected notification input state for user {user_id}: waiting_for={waiting_for}"
+                f"Неожиданное состояние ввода уведомления для пользователя {user_id}: waiting_for={waiting_for}"
             )
             await update.message.reply_text(
-                "❌ Unexpected input. Please use /admin to access the notification menu."
+                "❌ Неожиданный ввод. Используйте /admin для доступа к меню уведомлений."
             )
 
     async def send_notification_to_event_users(
@@ -506,7 +523,7 @@ class EventBot:
         event = cursor.fetchone()
 
         if not event:
-            await query.edit_message_text("❌ Event not found.")
+            await query.edit_message_text("❌ Мероприятие не найдено.")
             conn.close()
             return
 
@@ -525,8 +542,8 @@ class EventBot:
         conn.close()
 
         await query.edit_message_text(
-            f"✅ Successfully registered for '{event[0]}' on {event[1]}!\n"
-            "You'll receive a notification before the event."
+            f"✅ Успешно зарегистрированы на '{event[0]}' {event[1]}!\n"
+            "Вы получите уведомление перед мероприятием."
         )
 
     async def handle_rsvp_response(self, query):
@@ -534,7 +551,7 @@ class EventBot:
         parts = query.data.split("_")
         if len(parts) < 3:
             logger.warning(f"Invalid RSVP callback data: {query.data}")
-            await query.answer("Invalid RSVP response.")
+            await query.answer("Неверный ответ RSVP.")
             return
 
         event_id = int(parts[1])
@@ -698,7 +715,7 @@ class EventBot:
     async def handle_post_card_selection(self, query):
         """Handle event selection for posting event card"""
         if not self.is_admin(query.from_user.id):
-            await query.answer("❌ Access denied.")
+            await query.answer("❌ Доступ запрещен.")
             return
 
         event_id = int(query.data.split("_")[2])
@@ -713,7 +730,7 @@ class EventBot:
         conn.close()
 
         if not event:
-            await query.answer("❌ Event not found or inactive.")
+            await query.answer("❌ Мероприятие не найдено или неактивно.")
             return
 
         title, description, event_date = event[0]
@@ -742,12 +759,12 @@ class EventBot:
             text=message, parse_mode="Markdown", reply_markup=reply_markup
         )
 
-        await query.answer("✅ Event card posted!")
+        await query.answer("✅ Карточка мероприятия опубликована!")
 
     async def handle_view_stats_selection(self, query):
         """Handle event selection for viewing RSVP statistics"""
         if not self.is_admin(query.from_user.id):
-            await query.answer("❌ Access denied.")
+            await query.answer("❌ Доступ запрещен.")
             return
 
         event_id = int(query.data.split("_")[2])
@@ -759,21 +776,21 @@ class EventBot:
         conn.close()
 
         if not event:
-            await query.answer("❌ Event not found.")
+            await query.answer("❌ Мероприятие не найдено.")
             return
 
         stats = await self.get_rsvp_stats(event_id)
 
-        text = f"📊 *RSVP Statistics for '{event[0]}'*\n📅 Date: {event[1]}\n\n"
+        text = f"📊 *Статистика RSVP для '{event[0]}'*\n📅 Дата: {event[1]}\n\n"
         text += f"✅ иду: {stats['иду']}\n❌ не иду: {stats['не иду']}\n\n"
-        text += "Total RSVPs: " + str(stats["иду"] + stats["не иду"])
+        text += "Всего ответов: " + str(stats["иду"] + stats["не иду"])
 
         await query.edit_message_text(text, parse_mode="Markdown")
 
     async def handle_check_users_selection(self, query):
         """Handle event selection for checking user status"""
         if not self.is_admin(query.from_user.id):
-            await query.answer("❌ Access denied.")
+            await query.answer("❌ Доступ запрещен.")
             return
 
         event_id = int(query.data.split("_")[2])
@@ -786,7 +803,7 @@ class EventBot:
         event = cursor.fetchone()
 
         if not event:
-            await query.answer("❌ Event not found.")
+            await query.answer("❌ Мероприятие не найдено.")
             conn.close()
             return
 
@@ -799,12 +816,14 @@ class EventBot:
         conn.close()
 
         if not registered_users:
-            await query.edit_message_text("❌ No users registered for this event.")
+            await query.edit_message_text(
+                "❌ Нет зарегистрированных пользователей для этого мероприятия."
+            )
             return
 
         # Test sending a message to each user
         test_message = (
-            "🔍 This is a test message to check if you can receive notifications."
+            "🔍 Это тестовое сообщение для проверки возможности получения уведомлений."
         )
         reachable_users = []
         unreachable_users = []
@@ -821,21 +840,21 @@ class EventBot:
                     unreachable_users.append((user_id, username, first_name))
 
         # Create status report
-        report = f"📊 *User Status Report*\n\n"
-        report += f"📅 Event: {event[0]}\n"
-        report += f"📅 Date: {event[1]}\n\n"
-        report += f"✅ *Reachable Users ({len(reachable_users)}):*\n"
+        report = f"📊 *Отчет о статусе пользователей*\n\n"
+        report += f"📅 Мероприятие: {event[0]}\n"
+        report += f"📅 Дата: {event[1]}\n\n"
+        report += f"✅ *Доступные пользователи ({len(reachable_users)}):*\n"
 
         for user_id, username, first_name in reachable_users:
-            display_name = username or first_name or f"User {user_id}"
+            display_name = username or first_name or f"Пользователь {user_id}"
             report += f"• {display_name}\n"
 
         if unreachable_users:
-            report += f"\n❌ *Unreachable Users ({len(unreachable_users)}):*\n"
-            report += f"*These users need to send /start to the bot first:*\n"
+            report += f"\n❌ *Недоступные пользователи ({len(unreachable_users)}):*\n"
+            report += f"*Эти пользователи должны сначала отправить /start боту:*\n"
 
             for user_id, username, first_name in unreachable_users:
-                display_name = username or first_name or f"User {user_id}"
+                display_name = username or first_name or f"Пользователь {user_id}"
                 report += f"• {display_name}\n"
 
         await query.edit_message_text(report, parse_mode="Markdown")
@@ -843,7 +862,7 @@ class EventBot:
     async def handle_admin_callback(self, query):
         """Handle admin callbacks"""
         if not self.is_admin(query.from_user.id):
-            await query.edit_message_text("❌ Access denied.")
+            await query.edit_message_text("❌ Доступ запрещен.")
             return
 
         logger.info(f"Admin callback: {query.data} from user {query.from_user.id}")
@@ -872,33 +891,45 @@ class EventBot:
         # Get current event data
         user_data = self.user_data.get(user_id, {})
 
-        title = user_data.get("event_title", "Not set")
-        event_date = user_data.get("event_date", "Not set")
-        description = user_data.get("event_description", "Not set")
+        title = user_data.get("event_title", "Не установлено")
+        event_date = user_data.get("event_date", "Не установлено")
+        description = user_data.get("event_description", "Не установлено")
 
         keyboard = [
             [
                 InlineKeyboardButton(
-                    "📝 Enter Event Title", callback_data="create_title"
+                    "📝 Ввести название мероприятия", callback_data="create_title"
                 )
             ],
-            [InlineKeyboardButton("📅 Enter Event Date", callback_data="create_date")],
             [
                 InlineKeyboardButton(
-                    "📄 Enter Description", callback_data="create_description"
+                    "📅 Ввести дату мероприятия", callback_data="create_date"
                 )
             ],
-            [InlineKeyboardButton("✅ Create Event", callback_data="create_final")],
-            [InlineKeyboardButton("🗑️ Clear Data", callback_data="create_clear")],
-            [InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_back")],
+            [
+                InlineKeyboardButton(
+                    "📄 Ввести описание", callback_data="create_description"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "✅ Создать мероприятие", callback_data="create_final"
+                )
+            ],
+            [InlineKeyboardButton("🗑️ Очистить данные", callback_data="create_clear")],
+            [
+                InlineKeyboardButton(
+                    "🔙 Назад в меню администратора", callback_data="admin_back"
+                )
+            ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        status_text = f"📝 *Event Creation*\n\n"
-        status_text += f"📝 Title: {title}\n"
-        status_text += f"📅 Date: {event_date}\n"
-        status_text += f"📄 Description: {description}\n\n"
-        status_text += "Click the buttons below to enter each field:"
+        status_text = f"📝 *Создание мероприятия*\n\n"
+        status_text += f"📝 Название: {title}\n"
+        status_text += f"📅 Дата: {event_date}\n"
+        status_text += f"📄 Описание: {description}\n\n"
+        status_text += "Нажмите кнопки ниже для ввода каждого поля:"
 
         await query.edit_message_text(
             status_text, parse_mode="Markdown", reply_markup=reply_markup
@@ -910,7 +941,7 @@ class EventBot:
 
         # Check if user is admin
         if not self.is_admin(user_id):
-            await query.edit_message_text("❌ Access denied.")
+            await query.edit_message_text("❌ Доступ запрещен.")
             return
 
         # Initialize user_data if it doesn't exist
@@ -925,30 +956,30 @@ class EventBot:
             self.user_data[user_id]["waiting_for"] = "title"
             logger.info(f"User data for {user_id}: {self.user_data[user_id]}")
             await query.edit_message_text(
-                "📝 Please enter the event title:\n\n"
-                "Send a message with the title.\n\n"
-                "Example: Team Meeting\n\n"
-                "💡 Just type the title and send it as a regular message."
+                "📝 Пожалуйста, введите название мероприятия:\n\n"
+                "Отправьте сообщение с названием.\n\n"
+                "Пример: Командная встреча\n\n"
+                "💡 Просто введите название и отправьте как обычное сообщение."
             )
 
         elif query.data == "create_date":
             self.user_data[user_id]["creating_event"] = True
             self.user_data[user_id]["waiting_for"] = "date"
             await query.edit_message_text(
-                "📅 Please enter the event date:\n\n"
-                "Send a message with the date in YYYY-MM-DD format.\n\n"
-                "Example: 2024-12-25\n\n"
-                "💡 Just type the date and send it as a regular message."
+                "📅 Пожалуйста, введите дату мероприятия:\n\n"
+                "Отправьте сообщение с датой в формате ГГГГ-ММ-ДД.\n\n"
+                "Пример: 2024-12-25\n\n"
+                "💡 Просто введите дату и отправьте как обычное сообщение."
             )
 
         elif query.data == "create_description":
             self.user_data[user_id]["creating_event"] = True
             self.user_data[user_id]["waiting_for"] = "description"
             await query.edit_message_text(
-                "📄 Please enter the event description:\n\n"
-                "Send a message with the description.\n\n"
-                "Example: Monthly team sync meeting\n\n"
-                "💡 Just type the description and send it as a regular message."
+                "📄 Пожалуйста, введите описание мероприятия:\n\n"
+                "Отправьте сообщение с описанием.\n\n"
+                "Пример: Ежемесячная синхронизация команды\n\n"
+                "💡 Просто введите описание и отправьте как обычное сообщение."
             )
 
         elif query.data == "create_final":
@@ -956,8 +987,8 @@ class EventBot:
         elif query.data == "create_clear":
             await self.clear_event_creation_data(query)
         else:
-            logger.warning(f"Unknown event creation step: {query.data}")
-            await query.edit_message_text("❌ Unknown action. Please try again.")
+            logger.warning(f"Неизвестный шаг создания мероприятия: {query.data}")
+            await query.edit_message_text("❌ Неизвестное действие. Попробуйте снова.")
 
     async def create_event_from_dialogue(self, query):
         """Create event using the dialogue data"""
@@ -966,15 +997,15 @@ class EventBot:
         # Get stored event data
         user_data = self.user_data.get(user_id, {})
 
-        title = user_data.get("event_title", "Untitled Event")
+        title = user_data.get("event_title", "Без названия")
         event_date = user_data.get("event_date", datetime.now().strftime("%Y-%m-%d"))
-        description = user_data.get("event_description", "No description provided")
+        description = user_data.get("event_description", "Описание не предоставлено")
 
         # Validate that we have at least a title
-        if not title or title == "Untitled Event":
+        if not title or title == "Без названия":
             await query.edit_message_text(
-                "❌ Please set an event title first.\n\n"
-                "Use the '📝 Enter Event Title' button to set the title."
+                "❌ Пожалуйста, сначала установите название мероприятия.\n\n"
+                "Используйте кнопку '📝 Ввести название мероприятия' для установки названия."
             )
             return
 
@@ -994,15 +1025,15 @@ class EventBot:
                 self.user_data[user_id].clear()
 
             await query.edit_message_text(
-                f"✅ Event created successfully!\n\n"
-                f"📝 Title: {title}\n"
-                f"📅 Date: {event_date}\n"
-                f"📄 Description: {description}\n\n"
-                f"Event ID: {event_id}"
+                f"✅ Мероприятие успешно создано!\n\n"
+                f"📝 Название: {title}\n"
+                f"📅 Дата: {event_date}\n"
+                f"📄 Описание: {description}\n\n"
+                f"ID мероприятия: {event_id}"
             )
 
         except Exception as e:
-            await query.edit_message_text(f"❌ Error creating event: {str(e)}")
+            await query.edit_message_text(f"❌ Ошибка создания мероприятия: {str(e)}")
 
     async def clear_event_creation_data(self, query):
         """Clear event creation data for user"""
@@ -1012,8 +1043,8 @@ class EventBot:
             self.user_data[user_id].clear()
 
         await query.edit_message_text(
-            "🗑️ Event creation data cleared!\n\n"
-            "All fields have been reset. You can start over with event creation."
+            "🗑️ Данные создания мероприятия очищены!\n\n"
+            "Все поля сброшены. Вы можете начать заново создание мероприятия."
         )
 
     async def show_post_card_menu(self, query):
@@ -1028,8 +1059,8 @@ class EventBot:
 
         if not events:
             await query.edit_message_text(
-                "❌ No active events found.\n\n"
-                "Create an event first using the admin panel."
+                "❌ Активные мероприятия не найдены.\n\n"
+                "Сначала создайте мероприятие через панель администратора."
             )
             return
 
@@ -1044,13 +1075,17 @@ class EventBot:
             )
 
         keyboard.append(
-            [InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_back")]
+            [
+                InlineKeyboardButton(
+                    "🔙 Назад в меню администратора", callback_data="admin_back"
+                )
+            ]
         )
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await query.edit_message_text(
-            "🎫 *Post Event Card*\n\n"
-            "Select an event to post an RSVP card in this chat:",
+            "🎫 *Опубликовать карточку мероприятия*\n\n"
+            "Выберите мероприятие для публикации RSVP карточки в этом чате:",
             parse_mode="Markdown",
             reply_markup=reply_markup,
         )
@@ -1067,8 +1102,8 @@ class EventBot:
 
         if not events:
             await query.edit_message_text(
-                "❌ No active events found.\n\n"
-                "Create an event first using the admin panel."
+                "❌ Активные мероприятия не найдены.\n\n"
+                "Сначала создайте мероприятие через панель администратора."
             )
             return
 
@@ -1084,12 +1119,17 @@ class EventBot:
             )
 
         keyboard.append(
-            [InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_back")]
+            [
+                InlineKeyboardButton(
+                    "🔙 Назад в меню администратора", callback_data="admin_back"
+                )
+            ]
         )
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await query.edit_message_text(
-            "📊 *RSVP Statistics*\n\n" "Select an event to view RSVP statistics:",
+            "📊 *Статистика RSVP*\n\n"
+            "Выберите мероприятие для просмотра статистики RSVP:",
             parse_mode="Markdown",
             reply_markup=reply_markup,
         )
@@ -1106,8 +1146,8 @@ class EventBot:
 
         if not events:
             await query.edit_message_text(
-                "❌ No active events found.\n\n"
-                "Create an event first using the admin panel."
+                "❌ Активные мероприятия не найдены.\n\n"
+                "Сначала создайте мероприятие через панель администратора."
             )
             return
 
@@ -1123,13 +1163,17 @@ class EventBot:
             )
 
         keyboard.append(
-            [InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_back")]
+            [
+                InlineKeyboardButton(
+                    "🔙 Назад в меню администратора", callback_data="admin_back"
+                )
+            ]
         )
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await query.edit_message_text(
-            "🔍 *Check User Status*\n\n"
-            "Select an event to check which users can receive notifications:",
+            "🔍 *Проверить статус пользователей*\n\n"
+            "Выберите мероприятие для проверки, какие пользователи могут получать уведомления:",
             parse_mode="Markdown",
             reply_markup=reply_markup,
         )
@@ -1137,33 +1181,38 @@ class EventBot:
     async def admin_menu_from_callback(self, query):
         """Show admin menu from callback query"""
         keyboard = [
-            [InlineKeyboardButton("📅 Create Event", callback_data="admin_create")],
-            [InlineKeyboardButton("📋 List Events", callback_data="admin_list")],
             [
                 InlineKeyboardButton(
-                    "👥 View Registrations", callback_data="admin_registrations"
+                    "📅 Создать мероприятие", callback_data="admin_create"
+                )
+            ],
+            [InlineKeyboardButton("📋 Список мероприятий", callback_data="admin_list")],
+            [
+                InlineKeyboardButton(
+                    "👥 Просмотр регистраций", callback_data="admin_registrations"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "📢 Send Notifications", callback_data="admin_notify"
+                    "📢 Отправить уведомления", callback_data="admin_notify"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "🎫 Post Event Card", callback_data="admin_post_card"
+                    "🎫 Опубликовать карточку мероприятия",
+                    callback_data="admin_post_card",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    "📊 View RSVP Stats", callback_data="admin_rsvp_stats"
+                    "📊 Статистика RSVP", callback_data="admin_rsvp_stats"
                 )
             ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await query.edit_message_text(
-            "🔧 Admin Panel\nSelect an action:", reply_markup=reply_markup
+            "🔧 Панель администратора\nВыберите действие:", reply_markup=reply_markup
         )
 
     async def show_admin_events(self, query):
@@ -1177,10 +1226,10 @@ class EventBot:
         conn.close()
 
         if not events:
-            await query.edit_message_text("No events found.")
+            await query.edit_message_text("Мероприятия не найдены.")
             return
 
-        text = "📅 *All Events:*\n\n"
+        text = "📅 *Все мероприятия:*\n\n"
         for event_id, title, event_date, is_active in events:
             status = "✅" if is_active else "❌"
             text += f"{status} *{title}* - {event_date} (ID: {event_id})\n"
@@ -1207,23 +1256,25 @@ class EventBot:
         conn.close()
 
         if not events:
-            await query.edit_message_text("No active events found.")
+            await query.edit_message_text("Активные мероприятия не найдены.")
             return
 
-        text = "👥 *Event Registrations:*\n\n"
+        text = "👥 *Регистрации на мероприятия:*\n\n"
         for title, event_date, total_users in events:
-            text += f"📅 *{title}* ({event_date})\n👤 {total_users} registered\n\n"
+            text += (
+                f"📅 *{title}* ({event_date})\n👤 {total_users} зарегистрировано\n\n"
+            )
 
         await query.edit_message_text(text, parse_mode="Markdown")
 
     async def event_users(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """List users registered for specific event - Admin only"""
         if not self.is_admin(update.effective_user.id):
-            await update.message.reply_text("❌ Access denied.")
+            await update.message.reply_text("❌ Доступ запрещен.")
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /event_users <event_id>")
+            await update.message.reply_text("Использование: /event_users <event_id>")
             return
 
         try:
@@ -1237,7 +1288,7 @@ class EventBot:
             event = cursor.fetchone()
 
             if not event:
-                await update.message.reply_text("❌ Event not found.")
+                await update.message.reply_text("❌ Мероприятие не найдено.")
                 conn.close()
                 return
 
@@ -1257,16 +1308,16 @@ class EventBot:
             users = cursor.fetchall()
             conn.close()
 
-            text = f"👥 *Registered Users for '{event[0]}'*\n📅 Date: {event[1]}\n\n"
+            text = f"👥 *Зарегистрированные пользователи для '{event[0]}'*\n📅 Дата: {event[1]}\n\n"
 
             if not users:
-                text += "No users registered yet."
+                text += "Пока нет зарегистрированных пользователей."
             else:
                 for i, (username, first_name, registered_at, source) in enumerate(
                     users, 1
                 ):
-                    name = first_name or "Unknown"
-                    username_text = f"@{username}" if username else "No username"
+                    name = first_name or "Неизвестно"
+                    username_text = f"@{username}" if username else "Без username"
                     source_emoji = "📝" if source == "registration" else "✅"
                     text += f"{i}. {name} ({username_text}) {source_emoji}\n"
 
@@ -1278,11 +1329,13 @@ class EventBot:
     async def notify_users(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send notification to all registered users - Admin only"""
         if not self.is_admin(update.effective_user.id):
-            await update.message.reply_text("❌ Access denied.")
+            await update.message.reply_text("❌ Доступ запрещен.")
             return
 
         if len(context.args) < 2:
-            await update.message.reply_text("Usage: /notify_users <event_id> <message>")
+            await update.message.reply_text(
+                "Использование: /notify_users <event_id> <сообщение>"
+            )
             return
 
         try:
@@ -1299,7 +1352,7 @@ class EventBot:
             event = cursor.fetchone()
 
             if not event:
-                await update.message.reply_text("❌ Event not found.")
+                await update.message.reply_text("❌ Мероприятие не найдено.")
                 conn.close()
                 return
 
@@ -1313,14 +1366,12 @@ class EventBot:
 
             if not user_ids:
                 await update.message.reply_text(
-                    "❌ No users registered for this event."
+                    "❌ Нет зарегистрированных пользователей для этого мероприятия."
                 )
                 return
 
             # Send notifications
-            notification_text = (
-                f"🔔 *Event Reminder*\n\n📅 {event[0]} - {event[1]}\n\n{message}"
-            )
+            notification_text = f"🔔 *Напоминание о мероприятии*\n\n📅 {event[0]} - {event[1]}\n\n{message}"
 
             sent_count = 0
             failed_count = 0
@@ -1342,13 +1393,15 @@ class EventBot:
                         blocked_users.append(user_id)
 
             status_message = (
-                f"✅ Notifications sent to {sent_count}/{len(user_ids)} users."
+                f"✅ Уведомления отправлены {sent_count}/{len(user_ids)} пользователям."
             )
             if failed_count > 0:
-                status_message += f"\n❌ Failed to send to {failed_count} users."
+                status_message += (
+                    f"\n❌ Не удалось отправить {failed_count} пользователям."
+                )
                 if blocked_users:
-                    status_message += f"\n\n⚠️ {len(blocked_users)} users haven't started a conversation with the bot."
-                    status_message += "\nThey need to send /start to the bot first to receive notifications."
+                    status_message += f"\n\n⚠️ {len(blocked_users)} пользователей не начали разговор с ботом."
+                    status_message += "\nИм нужно сначала отправить /start боту для получения уведомлений."
 
             await update.message.reply_text(status_message)
 
@@ -1358,11 +1411,13 @@ class EventBot:
     async def post_event_card(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Post event card with RSVP buttons in chat group - Admin only"""
         if not self.is_admin(update.effective_user.id):
-            await update.message.reply_text("❌ Access denied.")
+            await update.message.reply_text("❌ Доступ запрещен.")
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /post_event_card <event_id>")
+            await update.message.reply_text(
+                "Использование: /post_event_card <event_id>"
+            )
             return
 
         try:
@@ -1378,7 +1433,9 @@ class EventBot:
             conn.close()
 
             if not event:
-                await update.message.reply_text("❌ Event not found or inactive.")
+                await update.message.reply_text(
+                    "❌ Мероприятие не найдено или неактивно."
+                )
                 return
 
             title, description, event_date = event[0]
@@ -1449,7 +1506,7 @@ class EventBot:
     async def list_events(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """List all events - Admin only"""
         if not self.is_admin(update.effective_user.id):
-            await update.message.reply_text("❌ Access denied.")
+            await update.message.reply_text("❌ Доступ запрещен.")
             return
 
         conn = sqlite3.connect("events.db")
@@ -1469,13 +1526,13 @@ class EventBot:
         conn.close()
 
         if not events:
-            await update.message.reply_text("No events found.")
+            await update.message.reply_text("Мероприятия не найдены.")
             return
 
-        text = "📅 *All Events:*\n\n"
+        text = "📅 *Все мероприятия:*\n\n"
         for event_id, title, event_date, is_active, total_users in events:
             status = "✅" if is_active else "❌"
-            text += f"{status} *{title}* (ID: {event_id})\n📅 {event_date}\n👤 {total_users} registered\n\n"
+            text += f"{status} *{title}* (ID: {event_id})\n📅 {event_date}\n👤 {total_users} зарегистрировано\n\n"
 
         await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -1541,12 +1598,13 @@ class EventBot:
 
         if not events:
             await query.edit_message_text(
-                "❌ No active events found.\n\nCreate an event first using the admin menu.",
+                "❌ Активные мероприятия не найдены.\n\nСначала создайте мероприятие через меню администратора.",
                 reply_markup=InlineKeyboardMarkup(
                     [
                         [
                             InlineKeyboardButton(
-                                "🔙 Back to Admin Menu", callback_data="admin_back"
+                                "🔙 Назад в меню администратора",
+                                callback_data="admin_back",
                             )
                         ]
                     ]
@@ -1560,21 +1618,25 @@ class EventBot:
             keyboard.append(
                 [
                     InlineKeyboardButton(
-                        f"📅 {title} ({total_users} users)",
+                        f"📅 {title} ({total_users} пользователей)",
                         callback_data=f"notify_event_{event_id}",
                     )
                 ]
             )
 
         keyboard.append(
-            [InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_back")]
+            [
+                InlineKeyboardButton(
+                    "🔙 Назад в меню администратора", callback_data="admin_back"
+                )
+            ]
         )
 
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await query.edit_message_text(
-            "📢 *Send Notifications*\n\n"
-            "Select an event to send notifications to registered users:",
+            "📢 *Отправить уведомления*\n\n"
+            "Выберите мероприятие для отправки уведомлений зарегистрированным пользователям:",
             parse_mode="Markdown",
             reply_markup=reply_markup,
         )
@@ -1582,7 +1644,7 @@ class EventBot:
     async def handle_notify_event_selection(self, query):
         """Handle event selection for notifications"""
         if not self.is_admin(query.from_user.id):
-            await query.edit_message_text("❌ Access denied.")
+            await query.edit_message_text("❌ Доступ запрещен.")
             return
 
         # Extract event_id from callback data
@@ -1605,22 +1667,23 @@ class EventBot:
         conn.close()
 
         if not event:
-            await query.edit_message_text("❌ Event not found.")
+            await query.edit_message_text("❌ Мероприятие не найдено.")
             return
 
         await query.edit_message_text(
-            f"📢 *Send Notification*\n\n"
-            f"📅 Event: {event[0]}\n"
-            f"📅 Date: {event[1]}\n\n"
-            f"Please send the notification message:\n\n"
-            f'💡 Example: "Don\'t forget to bring your laptop!"\n\n'
-            f"Just type your message and send it as a regular message.",
+            f"📢 *Отправить уведомление*\n\n"
+            f"📅 Мероприятие: {event[0]}\n"
+            f"📅 Дата: {event[1]}\n\n"
+            f"Пожалуйста, отправьте сообщение уведомления:\n\n"
+            f'💡 Пример: "Не забудьте взять ноутбук!"\n\n'
+            f"Просто введите ваше сообщение и отправьте как обычное сообщение.",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
                         InlineKeyboardButton(
-                            "🔙 Back to Event Selection", callback_data="admin_notify"
+                            "🔙 Назад к выбору мероприятия",
+                            callback_data="admin_notify",
                         )
                     ]
                 ]
@@ -1632,11 +1695,11 @@ class EventBot:
     ):
         """Check which users haven't started conversations with the bot - Admin only"""
         if not self.is_admin(update.effective_user.id):
-            await update.message.reply_text("❌ Access denied.")
+            await update.message.reply_text("❌ Доступ запрещен.")
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /check_users <event_id>")
+            await update.message.reply_text("Использование: /check_users <event_id>")
             return
 
         try:
@@ -1652,7 +1715,7 @@ class EventBot:
             event = cursor.fetchone()
 
             if not event:
-                await update.message.reply_text("❌ Event not found.")
+                await update.message.reply_text("❌ Мероприятие не найдено.")
                 conn.close()
                 return
 
@@ -1666,14 +1729,12 @@ class EventBot:
 
             if not registered_users:
                 await update.message.reply_text(
-                    "❌ No users registered for this event."
+                    "❌ Нет зарегистрированных пользователей для этого мероприятия."
                 )
                 return
 
             # Test sending a message to each user
-            test_message = (
-                "🔍 This is a test message to check if you can receive notifications."
-            )
+            test_message = "🔍 Это тестовое сообщение для проверки возможности получения уведомлений."
             reachable_users = []
             unreachable_users = []
 
@@ -1689,21 +1750,23 @@ class EventBot:
                         unreachable_users.append((user_id, username, first_name))
 
             # Create status report
-            report = f"📊 *User Status Report*\n\n"
-            report += f"📅 Event: {event[0]}\n"
-            report += f"📅 Date: {event[1]}\n\n"
-            report += f"✅ *Reachable Users ({len(reachable_users)}):*\n"
+            report = f"📊 *Отчет о статусе пользователей*\n\n"
+            report += f"📅 Мероприятие: {event[0]}\n"
+            report += f"📅 Дата: {event[1]}\n\n"
+            report += f"✅ *Доступные пользователи ({len(reachable_users)}):*\n"
 
             for user_id, username, first_name in reachable_users:
-                display_name = username or first_name or f"User {user_id}"
+                display_name = username or first_name or f"Пользователь {user_id}"
                 report += f"• {display_name}\n"
 
             if unreachable_users:
-                report += f"\n❌ *Unreachable Users ({len(unreachable_users)}):*\n"
-                report += f"*These users need to send /start to the bot first:*\n"
+                report += (
+                    f"\n❌ *Недоступные пользователи ({len(unreachable_users)}):*\n"
+                )
+                report += f"*Эти пользователи должны сначала отправить /start боту:*\n"
 
                 for user_id, username, first_name in unreachable_users:
-                    display_name = username or first_name or f"User {user_id}"
+                    display_name = username or first_name or f"Пользователь {user_id}"
                     report += f"• {display_name}\n"
 
             await update.message.reply_text(report, parse_mode="Markdown")
@@ -1713,7 +1776,7 @@ class EventBot:
 
     def run(self):
         """Run the bot"""
-        print("Starting Event Registration Bot...")
+        print("Запуск бота регистрации на мероприятия...")
         self.application.run_polling()
 
 
@@ -1727,7 +1790,7 @@ if __name__ == "__main__":
     ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
 
     if not all([BOT_TOKEN, ADMIN_IDS]):
-        print("❌ Please set BOT_TOKEN and ADMIN_IDS environment variables")
+        print("❌ Пожалуйста, установите переменные окружения BOT_TOKEN и ADMIN_IDS")
         exit(1)
 
     # Create and run bot

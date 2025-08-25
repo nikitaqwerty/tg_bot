@@ -356,10 +356,20 @@ class MessageHandlers:
             )
             return
 
-        # Send notifications
-        notification_text = (
-            f"🔔 *Напоминание о мероприятии*\n\n📅 {event[0]} - {event[2]}\n\n{message}"
-        )
+        # Build notification text with event details
+        title, description, event_date, attendee_limit, image_file_id = event
+
+        notification_text = f"🔔 *Напоминание о мероприятии*\n\n"
+        notification_text += f"📅 **{title}**\n"
+        notification_text += f"📆 *Дата:* {event_date}\n"
+
+        if description:
+            notification_text += f"📝 *Описание:* {description}\n"
+
+        if attendee_limit:
+            notification_text += f"👥 *Лимит участников:* {attendee_limit}\n"
+
+        notification_text += f"\n💬 *Сообщение:* {message}"
 
         sent_count = 0
         failed_count = 0
@@ -367,9 +377,30 @@ class MessageHandlers:
 
         for user_id in user_ids:
             try:
-                await self.bot.application.bot.send_message(
-                    chat_id=user_id, text=notification_text, parse_mode="Markdown"
-                )
+                # Send image first if available
+                if image_file_id:
+                    try:
+                        await self.bot.application.bot.send_photo(
+                            chat_id=user_id,
+                            photo=image_file_id,
+                            caption=notification_text,
+                            parse_mode="Markdown",
+                        )
+                    except Exception as photo_error:
+                        logger.warning(
+                            f"Failed to send photo to user {user_id}: {photo_error}"
+                        )
+                        # Fall back to text-only message
+                        await self.bot.application.bot.send_message(
+                            chat_id=user_id,
+                            text=notification_text,
+                            parse_mode="Markdown",
+                        )
+                else:
+                    # Send text-only message
+                    await self.bot.application.bot.send_message(
+                        chat_id=user_id, text=notification_text, parse_mode="Markdown"
+                    )
                 sent_count += 1
             except Exception as e:
                 error_msg = str(e)

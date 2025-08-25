@@ -67,11 +67,14 @@ class EventBot:
             CommandHandler("events", self.user_handlers.show_events)
         )
 
-        # Message handler for event creation input
+        # Message handlers
         self.application.add_handler(
             MessageHandler(
                 filters.TEXT & ~filters.COMMAND, self.message_handlers.handle_message
             )
+        )
+        self.application.add_handler(
+            MessageHandler(filters.PHOTO, self.message_handlers.handle_photo_message)
         )
 
         # Callback handlers

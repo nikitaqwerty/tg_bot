@@ -25,7 +25,16 @@ class MessageHandlers:
         user_id = update.effective_user.id
 
         # Log all incoming messages for debugging
-        logger.info(f"Received message from user {user_id}: {update.message.text}")
+        if update.message.text:
+            logger.info(
+                f"Received text message from user {user_id}: {update.message.text}"
+            )
+        elif update.message.photo:
+            logger.info(f"Received photo message from user {user_id}")
+        else:
+            logger.info(
+                f"Received message from user {user_id} (type: {type(update.message).__name__})"
+            )
 
         if not config.is_admin(user_id):
             logger.info(f"User {user_id} is not admin, ignoring message")
@@ -378,3 +387,51 @@ class MessageHandlers:
             sent_count, len(user_ids), failed_count, blocked_users
         )
         await update.message.reply_text(status_message)
+
+    async def handle_photo_message(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Handle photo messages from users"""
+        user_id = update.effective_user.id
+
+        # Log photo message
+        logger.info(f"Received photo message from user {user_id}")
+
+        if not config.is_admin(user_id):
+            logger.info(f"User {user_id} is not admin, ignoring photo message")
+            # Send a helpful message to non-admin users
+            await update.message.reply_text(
+                "👋 Привет! Я бот для управления мероприятиями.\n\n"
+                "Для просмотра доступных мероприятий используйте команду /events\n"
+                "Если у вас есть вопросы, обратитесь к администратору канала."
+            )
+            return
+
+        # Check if admin is in event creation mode waiting for image
+        if user_id in self.bot.user_data and self.bot.user_data[user_id].get(
+            "creating_event"
+        ):
+            waiting_for = self.bot.user_data[user_id].get("waiting_for")
+            if waiting_for == "event_image":
+                logger.info(f"Processing event creation image from user {user_id}")
+                await self.handle_event_creation_input(update, user_id)
+                return
+
+        # Check if admin is in event editing mode waiting for image
+        elif user_id in self.bot.user_data and self.bot.user_data[user_id].get(
+            "editing_event"
+        ):
+            waiting_for = self.bot.user_data[user_id].get("waiting_for")
+            if waiting_for == "edit_event_image":
+                logger.info(f"Processing event edit image from user {user_id}")
+                await self.handle_event_edit_input(update, user_id)
+                return
+
+        # Photo sent outside of image input context
+        logger.info(f"User {user_id} sent photo outside of image input context")
+        await update.message.reply_text(
+            "📸 Изображение получено!\n\n"
+            "💡 Совет: Используйте /admin для доступа к панели администратора.\n"
+            "Изображения можно прикреплять к мероприятиям при их создании или редактировании.",
+            reply_markup=create_back_to_admin_keyboard(),
+        )

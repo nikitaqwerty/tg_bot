@@ -274,13 +274,51 @@ class DatabaseManager:
             )
             return cursor.fetchall()
 
+    def get_attending_usernames(self, event_id: int) -> List[str]:
+        """Get list of usernames who will attend the event"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT username
+                FROM rsvp_responses
+                WHERE event_id = ? AND response = 'иду'
+                ORDER BY responded_at ASC
+            """,
+                (event_id,),
+            )
+            results = cursor.fetchall()
+            return [
+                f"@{username[0]}" if username[0] else "Unknown User"
+                for username in results
+            ]
+
+    def get_attending_users(self, event_id: int) -> List[Tuple[str, str, int]]:
+        """Get list of users (first_name, username, user_id) who will attend the event"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT first_name, username, user_id
+                FROM rsvp_responses
+                WHERE event_id = ? AND response = 'иду'
+                ORDER BY responded_at ASC
+            """,
+                (event_id,),
+            )
+            results = cursor.fetchall()
+            return [
+                (first_name or "Unknown", username or "", user_id)
+                for first_name, username, user_id in results
+            ]
+
     def get_events_with_registration_counts(self) -> List[Tuple]:
         """Get events with registration counts for admin view"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT e.title, e.event_date, 
+                SELECT e.id, e.title, e.event_date, 
                        (COUNT(DISTINCT r.user_id) + COUNT(DISTINCT rs.user_id)) as total_users
                 FROM events e
                 LEFT JOIN registrations r ON e.id = r.event_id

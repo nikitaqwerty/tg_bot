@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 from config import config
 from database import db
 from utils.keyboard_utils import create_rsvp_keyboard
-from utils.message_utils import format_event_card_message
+from utils.message_utils import escape_markdown, format_event_card_message
 
 logger = logging.getLogger(__name__)
 
@@ -196,10 +196,30 @@ class CallbackHandlers:
             return
 
         stats = db.get_rsvp_stats(event_id)
+        attending_users = db.get_attending_users(event_id)
 
         text = f"📊 *Статистика RSVP для '{event[0]}'*\n📅 Дата: {event[2]}\n\n"
         text += f"✅ иду: {stats['иду']}\n❌ не иду: {stats['не иду']}\n\n"
         text += "Всего ответов: " + str(stats["иду"] + stats["не иду"])
+
+        if attending_users:
+            text += f"\n\n👥 *Участники:*\n"
+            # Format users with clear indication of contactability
+            user_list = []
+
+            for first_name, username, user_id in attending_users:
+                display_name = escape_markdown(first_name)
+                if username:
+                    # Users with usernames can be contacted directly
+                    user_list.append(f"[{display_name}](https://t.me/{username})")
+                else:
+                    # Users without usernames cannot be contacted until they start conversation with bot
+                    user_list.append(f"{display_name} (ID: {user_id})")
+
+            text += "\n".join(user_list)
+            text += f"\n\n📝 *Примечание:* Пользователи без username должны сначала написать /start боту, чтобы получить уведомления."
+        else:
+            text += f"\n\n👥 *Участники:*\nПока нет подтверждений участия"
 
         await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN)
 

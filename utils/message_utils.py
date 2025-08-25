@@ -4,7 +4,11 @@ from database import db
 
 
 def format_event_card_message(
-    event_id: int, title: str, description: str, event_date: str
+    event_id: int,
+    title: str,
+    description: str,
+    event_date: str,
+    attendee_limit: int = None,
 ) -> str:
     """Format event card message with RSVP statistics"""
     stats = db.get_rsvp_stats(event_id)
@@ -14,6 +18,13 @@ def format_event_card_message(
     if description:
         message += f"📝 {escape_markdown(description)}\n\n"
     message += f"📅 Дата: {event_date}\n\n"
+
+    # Add attendee limit and current count
+    total_registered = stats["иду"] + stats["не иду"]
+    if attendee_limit:
+        message += f"👥 *Участники: {total_registered}/{attendee_limit}*\n\n"
+    else:
+        message += f"👥 *Зарегистрировано: {total_registered}*\n\n"
 
     # Add RSVP statistics
     message += f"📊 *RSVP Статистика:*\n"
@@ -38,12 +49,25 @@ def format_event_creation_status(user_data: dict) -> str:
     title = user_data.get("event_title", "Не установлено")
     event_date = user_data.get("event_date", "Не установлено")
     description = user_data.get("event_description", "Не установлено")
+    attendee_limit = user_data.get("attendee_limit")
+    image_file_id = user_data.get("event_image_file_id")
 
     status_text = f"📝 *Создание мероприятия*\n\n"
     status_text += f"📝 Название: {escape_markdown(title)}\n"
     status_text += f"📅 Дата: {event_date}\n"
-    status_text += f"📄 Описание: {escape_markdown(description)}\n\n"
-    status_text += "Нажмите кнопки ниже для ввода каждого поля:"
+    status_text += f"📄 Описание: {escape_markdown(description)}\n"
+
+    if attendee_limit is not None:
+        status_text += f"👥 Лимит участников: {attendee_limit}\n"
+    else:
+        status_text += f"👥 Лимит участников: Не установлен\n"
+
+    if image_file_id:
+        status_text += f"🖼️ Изображение: Прикреплено\n"
+    else:
+        status_text += f"🖼️ Изображение: Не прикреплено\n"
+
+    status_text += "\nНажмите кнопки ниже для ввода каждого поля:"
 
     return status_text
 
@@ -54,9 +78,24 @@ def format_admin_events_list(events: List[Tuple]) -> str:
         return "Мероприятия не найдены."
 
     text = "📅 *Все мероприятия:*\n\n"
-    for event_id, title, event_date, is_active, total_users in events:
+    for event in events:
+        if len(event) >= 6:  # New format with attendee_limit
+            event_id, title, event_date, is_active, total_users, attendee_limit = event
+        else:  # Old format without attendee_limit
+            event_id, title, event_date, is_active, total_users = event
+            attendee_limit = None
+
         status = "✅" if is_active else "❌"
-        text += f"{status} *{escape_markdown(title)}* (ID: {event_id})\n📅 {event_date}\n👤 {total_users} зарегистрировано\n\n"
+        text += (
+            f"{status} *{escape_markdown(title)}* (ID: {event_id})\n📅 {event_date}\n"
+        )
+
+        if attendee_limit:
+            text += f"👥 {total_users}/{attendee_limit} зарегистрировано\n"
+        else:
+            text += f"👥 {total_users} зарегистрировано (без лимита)\n"
+
+        text += "\n"
 
     return text
 
@@ -95,8 +134,19 @@ def format_registrations_list(events: List[Tuple]) -> str:
         return "Активные мероприятия не найдены."
 
     text = "👥 *Регистрации на мероприятия:*\n\n"
-    for event_id, title, event_date, total_users in events:
-        text += f"📅 *{escape_markdown(title)}* ({event_date})\n👤 {total_users} зарегистрировано\n"
+    for event in events:
+        if len(event) >= 5:  # New format with attendee_limit
+            event_id, title, event_date, total_users, attendee_limit = event
+        else:  # Old format without attendee_limit
+            event_id, title, event_date, total_users = event
+            attendee_limit = None
+
+        text += f"📅 *{escape_markdown(title)}* ({event_date})\n"
+
+        if attendee_limit:
+            text += f"👥 {total_users}/{attendee_limit} зарегистрировано\n"
+        else:
+            text += f"👥 {total_users} зарегистрировано (без лимита)\n"
 
         # Get attending usernames for this event
         from database import db
@@ -176,24 +226,41 @@ def format_notification_status(
     sent_count: int, total_count: int, failed_count: int, blocked_users: List[int]
 ) -> str:
     """Format notification status message"""
-    status_message = f"✅ Notifications sent to {sent_count}/{total_count} users."
+    status_message = (
+        f"✅ Уведомления отправлены {sent_count}/{total_count} пользователям."
+    )
 
     if failed_count > 0:
-        status_message += f"\n❌ Failed to send to {failed_count} users."
+        status_message += f"\n❌ Не удалось отправить {failed_count} пользователям."
         if blocked_users:
-            status_message += f"\n\n⚠️ {len(blocked_users)} users haven't started a conversation with the bot."
             status_message += (
-                "\nThey need to send /start to the bot first to receive notifications."
+                f"\n\n⚠️ {len(blocked_users)} пользователей не начали общение с ботом."
+            )
+            status_message += (
+                "\nИм нужно сначала отправить /start боту, чтобы получать уведомления."
             )
 
     return status_message
 
 
-def format_simple_event_message(title: str, description: str, event_date: str) -> str:
+def format_simple_event_message(
+    title: str, description: str, event_date: str, attendee_limit: int = None
+) -> str:
     """Format simple event message without RSVP stats"""
     message = f"🎉 *{escape_markdown(title)}*\n\n"
     if description:
         message += f"📝 {escape_markdown(description)}\n\n"
-    message += f"📅 Дата: {event_date}\n\n"
+    message += f"📅 Дата: {event_date}\n"
+
+    if attendee_limit:
+        # Get current registration count
+        from database import db
+
+        # We need event_id to get the count, but for simple messages we might not have it
+        # For now, just show the limit
+        message += f"👥 Лимит участников: {attendee_limit}\n\n"
+    else:
+        message += "\n"
+
     message += "Нажмите ниже для регистрации!"
     return message

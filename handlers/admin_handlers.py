@@ -58,7 +58,8 @@ class AdminHandlers:
         if len(context.args) < 3:
             await update.message.reply_text(
                 "Использование: /create_event <название> <дата:ГГГГ-ММ-ДД> <описание>\n"
-                "Пример: /create_event 'Командная встреча' 2024-12-25 'Ежемесячная синхронизация команды'"
+                "Пример: /create_event 'Командная встреча' 2024-12-25 'Ежемесячная синхронизация команды'\n\n"
+                "💡 Совет: Прикрепите изображение к сообщению с командой, и оно будет добавлено к мероприятию!"
             )
             return
 
@@ -66,20 +67,31 @@ class AdminHandlers:
         event_date = context.args[1]
         description = " ".join(context.args[2:])
 
+        # Check for attached image
+        image_file_id = None
+        if update.message.photo:
+            # Get the highest resolution photo
+            image_file_id = update.message.photo[-1].file_id
+
         try:
             # Validate date format
             datetime.strptime(event_date, "%Y-%m-%d")
 
-            event_id = db.create_event(title, description, event_date)
+            # Create event with optional image
+            event_id = db.create_event(
+                title, description, event_date, None, image_file_id
+            )
 
             # Post event in the current chat with registration button
             await self._post_event_in_chat(
-                update, event_id, title, description, event_date
+                update, event_id, title, description, event_date, image_file_id
             )
 
-            await update.message.reply_text(
-                f"✅ Мероприятие '{title}' успешно создано!"
-            )
+            success_message = f"✅ Мероприятие '{title}' успешно создано!"
+            if image_file_id:
+                success_message += "\n🖼️ Изображение прикреплено к мероприятию!"
+
+            await update.message.reply_text(success_message)
 
         except ValueError:
             await update.message.reply_text(
@@ -95,6 +107,7 @@ class AdminHandlers:
         title: str,
         description: str,
         event_date: str,
+        image_file_id: str = None,
     ):
         """Post event in the current chat with registration button"""
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -108,11 +121,32 @@ class AdminHandlers:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        message = f"🎉 *{title}*\n\n📅 Дата: {event_date}\n📝 {description}\n\nНажмите ниже для регистрации!"
-
-        await update.message.reply_text(
-            text=message, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
+        # Get attendee limit and image for the event
+        event = db.get_event_by_id(event_id)
+        attendee_limit = event[3] if event and len(event) > 3 else None
+        event_image_file_id = image_file_id or (
+            event[4] if event and len(event) > 4 else None
         )
+
+        # Format message with attendee limit info
+        from utils.message_utils import format_simple_event_message
+
+        message = format_simple_event_message(
+            title, description, event_date, attendee_limit
+        )
+
+        # Send message with or without image
+        if event_image_file_id:
+            await update.message.reply_photo(
+                photo=event_image_file_id,
+                caption=message,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=reply_markup,
+            )
+        else:
+            await update.message.reply_text(
+                text=message, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
+            )
 
     async def list_events(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """List all events - Admin only"""
@@ -147,7 +181,7 @@ class AdminHandlers:
             await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
         except ValueError:
-            await update.message.reply_text("❌ Invalid event ID.")
+            await update.message.reply_text("❌ Неверный ID мероприятия.")
 
     async def notify_users(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send notification to all registered users - Admin only"""
@@ -208,7 +242,7 @@ class AdminHandlers:
             await update.message.reply_text(status_message)
 
         except ValueError:
-            await update.message.reply_text("❌ Invalid event ID.")
+            await update.message.reply_text("❌ Неверный ID мероприятия.")
 
     async def post_event_card(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Post event card with RSVP buttons in chat group - Admin only"""
@@ -232,7 +266,8 @@ class AdminHandlers:
                 )
                 return
 
-            title, description, event_date = event
+            title, description, event_date = event[:3]
+            image_file_id = event[4] if len(event) > 4 else None
 
             # Create RSVP keyboard and message
             from utils.keyboard_utils import create_rsvp_keyboard
@@ -243,21 +278,32 @@ class AdminHandlers:
                 event_id, title, description, event_date
             )
 
-            await update.message.reply_text(
-                text=message, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
-            )
+            # Send message with or without image
+            if image_file_id:
+                await update.message.reply_photo(
+                    photo=image_file_id,
+                    caption=message,
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=reply_markup,
+                )
+            else:
+                await update.message.reply_text(
+                    text=message,
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=reply_markup,
+                )
 
         except ValueError:
-            await update.message.reply_text("❌ Invalid event ID.")
+            await update.message.reply_text("❌ Неверный ID мероприятия.")
 
     async def show_rsvp_stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show RSVP statistics for a specific event - Admin only"""
         if not self.is_admin(update.effective_user.id):
-            await update.message.reply_text("❌ Access denied.")
+            await update.message.reply_text("❌ Доступ запрещен.")
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /rsvp_stats <event_id>")
+            await update.message.reply_text("Использование: /rsvp_stats <event_id>")
             return
 
         try:
@@ -265,7 +311,7 @@ class AdminHandlers:
             event = db.get_event_by_id(event_id)
 
             if not event:
-                await update.message.reply_text("❌ Event not found.")
+                await update.message.reply_text("❌ Мероприятие не найдено.")
                 return
 
             stats = db.get_rsvp_stats(event_id)
@@ -273,7 +319,7 @@ class AdminHandlers:
             await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
         except ValueError:
-            await update.message.reply_text("❌ Invalid event ID.")
+            await update.message.reply_text("❌ Неверный ID мероприятия.")
 
     async def check_user_status(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -326,7 +372,7 @@ class AdminHandlers:
             await update.message.reply_text(report, parse_mode=ParseMode.MARKDOWN)
 
         except ValueError:
-            await update.message.reply_text("❌ Invalid event ID.")
+            await update.message.reply_text("❌ Неверный ID мероприятия.")
 
     # Callback handlers for admin menu
     async def handle_admin_callback(self, query):
@@ -360,7 +406,7 @@ class AdminHandlers:
         user_data = self.bot.user_data.get(user_id, {})
 
         status_text = format_event_creation_status(user_data)
-        reply_markup = create_event_creation_keyboard()
+        reply_markup = create_event_creation_keyboard(user_data)
 
         await query.edit_message_text(
             status_text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup

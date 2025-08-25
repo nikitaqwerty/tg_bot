@@ -7,8 +7,12 @@ from telegram.ext import ContextTypes
 
 from config import config
 from database import db
-from utils.keyboard_utils import create_rsvp_keyboard
-from utils.message_utils import escape_markdown, format_event_card_message
+from utils.keyboard_utils import create_event_creation_keyboard, create_rsvp_keyboard
+from utils.message_utils import (
+    escape_markdown,
+    format_event_card_message,
+    format_event_creation_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +57,7 @@ class CallbackHandlers:
         # Check if already registered
         if db.is_user_registered(event_id, user.id):
             await query.edit_message_text(
-                "✅ You're already registered for this event!"
+                "✅ Вы уже зарегистрированы на это мероприятие!"
             )
             return
 
@@ -63,15 +67,32 @@ class CallbackHandlers:
             await query.edit_message_text("❌ Мероприятие не найдено.")
             return
 
+        title, description, event_date, attendee_limit = event
+
+        # Check if event is at capacity
+        if db.is_event_at_capacity(event_id):
+            await query.edit_message_text(
+                f"❌ К сожалению, мероприятие '{title}' уже заполнено.\n"
+                f"Достигнут лимит участников ({attendee_limit})."
+            )
+            return
+
         # Register user
         success = db.register_user_for_event(
             event_id, user.id, user.username, user.first_name
         )
 
         if success:
+            # Get updated registration count
+            current_count = db.get_registration_count(event_id)
+            limit_text = f" (участников: {current_count}"
+            if attendee_limit:
+                limit_text += f"/{attendee_limit}"
+            limit_text += ")"
+
             await query.edit_message_text(
-                f"✅ Успешно зарегистрированы на '{event[0]}' {event[2]}!\n"
-                "Вы получите уведомление перед мероприятием."
+                f"✅ Успешно зарегистрированы на '{title}' {event_date}!\n"
+                f"Вы получите уведомление перед мероприятием.{limit_text}"
             )
         else:
             await query.edit_message_text("❌ Ошибка регистрации. Попробуйте снова.")
@@ -91,8 +112,19 @@ class CallbackHandlers:
         # Get event details first
         event = db.get_event_by_id(event_id)
         if not event:
-            await query.answer("❌ Event not found.")
+            await query.answer("❌ Мероприятие не найдено.")
             return
+
+        title, description, event_date, attendee_limit = event
+
+        # Check if event is at capacity (only for positive responses)
+        if response == "иду" and not db.is_user_registered(event_id, user.id):
+            if db.is_event_at_capacity(event_id):
+                await query.answer(
+                    f"❌ К сожалению, мероприятие '{title}' уже заполнено. "
+                    f"Достигнут лимит участников ({attendee_limit})."
+                )
+                return
 
         # Set RSVP response
         action_message = db.set_rsvp_response(
@@ -107,26 +139,11 @@ class CallbackHandlers:
         title, description, event_date = event
 
         # Format event card message with updated stats
-        message = f"🎉 *{title}*\n\n"
-        if description:
-            message += f"📝 {description}\n\n"
-        message += f"📅 Дата: {event_date}\n\n"
+        from utils.message_utils import format_event_card_message
 
-        # Add RSVP statistics
-        message += f"📊 *RSVP Статистика:*\n"
-        message += f"✅ иду: {stats['иду']}\n"
-        message += f"❌ не иду: {stats['не иду']}\n\n"
-
-        # Add recent responses
-        if recent_responses:
-            message += "👥 *Последние ответы:*\n"
-            for first_name, username, resp in recent_responses:
-                name = first_name or "Unknown"
-                emoji = "✅" if resp == "иду" else "❌"
-                message += f"{emoji} {name}: {resp}\n"
-            message += "\n"
-
-        message += "Отметьтесь, пожалуйста:"
+        message = format_event_card_message(
+            event_id, title, description, event_date, attendee_limit
+        )
 
         # Create updated keyboard with current stats and user's current response
         reply_markup = create_rsvp_keyboard(event_id, user.id)
@@ -154,31 +171,31 @@ class CallbackHandlers:
             await query.answer("❌ Мероприятие не найдено или неактивно.")
             return
 
-        title, description, event_date = event
+        title, description, event_date, attendee_limit = event[:4]
+        image_file_id = event[4] if len(event) > 4 else None
 
         # Create RSVP keyboard (no user_id for initial posting)
         reply_markup = create_rsvp_keyboard(event_id)
 
-        # Get current RSVP statistics for message
-        stats = db.get_rsvp_stats(event_id)
-
         # Format event card message with initial stats
-        message = f"🎉 *{title}*\n\n"
-        if description:
-            message += f"📝 {description}\n\n"
-        message += f"📅 Дата: {event_date}\n\n"
+        from utils.message_utils import format_event_card_message
 
-        # Add RSVP statistics
-        message += f"📊 *RSVP Статистика:*\n"
-        message += f"✅ иду: {stats['иду']}\n"
-        message += f"❌ не иду: {stats['не иду']}\n\n"
-
-        message += "Отметьтесь, пожалуйста:"
-
-        # Post the event card in the chat
-        await query.message.reply_text(
-            text=message, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
+        message = format_event_card_message(
+            event_id, title, description, event_date, attendee_limit
         )
+
+        # Post the event card in the chat with or without image
+        if image_file_id:
+            await query.message.reply_photo(
+                photo=image_file_id,
+                caption=message,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=reply_markup,
+            )
+        else:
+            await query.message.reply_text(
+                text=message, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
+            )
 
         await query.answer("✅ Карточка мероприятия опубликована!")
 
@@ -364,6 +381,52 @@ class CallbackHandlers:
                 "💡 Просто введите описание и отправьте как обычное сообщение."
             )
 
+        elif query.data == "create_limit":
+            self.bot.user_data[user_id]["creating_event"] = True
+            self.bot.user_data[user_id]["waiting_for"] = "attendee_limit"
+            from utils.keyboard_utils import create_back_to_admin_keyboard
+
+            await query.edit_message_text(
+                "👥 Пожалуйста, введите лимит участников:\n\n"
+                "Отправьте сообщение с числом участников (например: 50).\n\n"
+                "Пример: 25\n\n"
+                "💡 Введите число участников или отправьте 0 для снятия лимита.\n"
+                "Если не хотите устанавливать лимит, нажмите '🔙 Назад в меню администратора'.",
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
+        elif query.data == "create_image":
+            self.bot.user_data[user_id]["creating_event"] = True
+            self.bot.user_data[user_id]["waiting_for"] = "event_image"
+            from utils.keyboard_utils import create_back_to_admin_keyboard
+
+            await query.edit_message_text(
+                "🖼️ Пожалуйста, прикрепите изображение:\n\n"
+                "Отправьте сообщение с изображением, которое будет прикреплено к мероприятию.\n\n"
+                "💡 Изображение будет отображаться в карточке мероприятия.\n"
+                "Если не хотите прикреплять изображение, нажмите '🔙 Назад в меню администратора'.\n\n"
+                "После прикрепления изображения вернитесь в меню создания мероприятия.",
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
+        elif query.data == "remove_image":
+            # Remove the attached image
+            if (
+                user_id in self.bot.user_data
+                and "event_image_file_id" in self.bot.user_data[user_id]
+            ):
+                del self.bot.user_data[user_id]["event_image_file_id"]
+
+            # Show updated status with new keyboard
+            user_data = self.bot.user_data.get(user_id, {})
+            status_text = format_event_creation_status(user_data)
+            reply_markup = create_event_creation_keyboard(user_data)
+
+            await query.edit_message_text(
+                status_text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
+            )
+            await query.answer("✅ Изображение удалено!")
+
         elif query.data == "create_final":
             await self.create_event_from_dialogue(query)
         elif query.data == "create_clear":
@@ -382,6 +445,8 @@ class CallbackHandlers:
         title = user_data.get("event_title", "Без названия")
         event_date = user_data.get("event_date", datetime.now().strftime("%Y-%m-%d"))
         description = user_data.get("event_description", "Описание не предоставлено")
+        attendee_limit = user_data.get("attendee_limit")
+        image_file_id = user_data.get("event_image_file_id")
 
         # Validate that we have at least a title
         if not title or title == "Без названия":
@@ -392,19 +457,31 @@ class CallbackHandlers:
             return
 
         try:
-            event_id = db.create_event(title, description, event_date)
+            event_id = db.create_event(
+                title, description, event_date, attendee_limit, image_file_id
+            )
 
             # Clear the creation data
             if user_id in self.bot.user_data:
                 self.bot.user_data[user_id].clear()
 
-            await query.edit_message_text(
-                f"✅ Мероприятие успешно создано!\n\n"
-                f"📝 Название: {title}\n"
-                f"📅 Дата: {event_date}\n"
-                f"📄 Описание: {description}\n\n"
-                f"ID мероприятия: {event_id}"
-            )
+            # Format success message
+            success_message = f"✅ Мероприятие успешно создано!\n\n"
+            success_message += f"📝 Название: {title}\n"
+            success_message += f"📅 Дата: {event_date}\n"
+            success_message += f"📄 Описание: {description}\n"
+
+            if attendee_limit is not None:
+                success_message += f"👥 Лимит участников: {attendee_limit}\n"
+            else:
+                success_message += f"👥 Лимит участников: Не ограничен\n"
+
+            if image_file_id:
+                success_message += f"🖼️ Изображение: Прикреплено\n"
+
+            success_message += f"\nID мероприятия: {event_id}"
+
+            await query.edit_message_text(success_message)
 
         except Exception as e:
             await query.edit_message_text(f"❌ Ошибка создания мероприятия: {str(e)}")

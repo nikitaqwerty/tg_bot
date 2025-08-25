@@ -6,6 +6,10 @@ from telegram.ext import ContextTypes
 
 from config import config
 from database import db
+from utils.keyboard_utils import (
+    create_back_to_admin_keyboard,
+    create_event_creation_continue_keyboard,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +53,8 @@ class MessageHandlers:
             )
             # Provide helpful feedback to admin users
             await update.message.reply_text(
-                "💡 Совет: Используйте /admin для доступа к панели администратора и создания мероприятий."
+                "💡 Совет: Используйте /admin для доступа к панели администратора и создания мероприятий.",
+                reply_markup=create_back_to_admin_keyboard(),
             )
 
     async def handle_event_creation_input(self, update: Update, user_id: int):
@@ -67,8 +72,9 @@ class MessageHandlers:
             self.bot.user_data[user_id]["waiting_for"] = None
             self.bot.user_data[user_id]["creating_event"] = False  # Clear creation mode
             await update.message.reply_text(
-                f"✅ Title set: {user_input}\n\n"
-                "Use /admin to return to the creation menu and continue with other fields."
+                f"✅ Название установлено: {user_input}\n\n"
+                "Теперь вы можете продолжить настройку мероприятия или вернуться в меню.",
+                reply_markup=create_event_creation_continue_keyboard(),
             )
 
         elif waiting_for == "date":
@@ -81,13 +87,14 @@ class MessageHandlers:
                     "creating_event"
                 ] = False  # Clear creation mode
                 await update.message.reply_text(
-                    f"✅ Date set: {user_input}\n\n"
-                    "Use /admin to return to the creation menu and continue with other fields."
+                    f"✅ Дата установлена: {user_input}\n\n"
+                    "Теперь вы можете продолжить настройку мероприятия или вернуться в меню.",
+                    reply_markup=create_event_creation_continue_keyboard(),
                 )
             except ValueError:
                 await update.message.reply_text(
-                    "❌ Invalid date format. Please use YYYY-MM-DD format.\n"
-                    "Example: 2024-12-25"
+                    "❌ Неверный формат даты. Пожалуйста, используйте формат ГГГГ-ММ-ДД.\n"
+                    "Пример: 2024-12-25"
                 )
 
         elif waiting_for == "description":
@@ -95,15 +102,72 @@ class MessageHandlers:
             self.bot.user_data[user_id]["waiting_for"] = None
             self.bot.user_data[user_id]["creating_event"] = False  # Clear creation mode
             await update.message.reply_text(
-                f"✅ Description set: {user_input}\n\n"
-                "Use /admin to return to the creation menu and create the event."
+                f"✅ Описание установлено: {user_input}\n\n"
+                "Теперь вы можете продолжить настройку мероприятия или вернуться в меню.",
+                reply_markup=create_event_creation_continue_keyboard(),
             )
+
+        elif waiting_for == "attendee_limit":
+            try:
+                # Parse and validate the limit
+                limit = int(user_input.strip())
+                if limit < 0:
+                    raise ValueError("Limit must be non-negative")
+
+                if limit == 0:
+                    # Set to None to indicate no limit
+                    self.bot.user_data[user_id]["attendee_limit"] = None
+                    await update.message.reply_text(
+                        "✅ Лимит участников снят (без ограничений)\n\n"
+                        "Теперь вы можете продолжить настройку мероприятия или вернуться в меню.",
+                        reply_markup=create_event_creation_continue_keyboard(),
+                    )
+                else:
+                    self.bot.user_data[user_id]["attendee_limit"] = limit
+                    await update.message.reply_text(
+                        f"✅ Лимит участников установлен: {limit}\n\n"
+                        "Теперь вы можете продолжить настройку мероприятия или вернуться в меню.",
+                        reply_markup=create_event_creation_continue_keyboard(),
+                    )
+
+                self.bot.user_data[user_id]["waiting_for"] = None
+                self.bot.user_data[user_id][
+                    "creating_event"
+                ] = False  # Clear creation mode
+
+            except ValueError:
+                await update.message.reply_text(
+                    "❌ Неверный формат лимита. Пожалуйста, введите положительное число или 0 для снятия лимита.\n"
+                    "Пример: 25"
+                )
+
+        elif waiting_for == "event_image":
+            # Handle image attachment
+            if update.message.photo:
+                # Get the highest resolution photo
+                image_file_id = update.message.photo[-1].file_id
+                self.bot.user_data[user_id]["event_image_file_id"] = image_file_id
+                self.bot.user_data[user_id]["waiting_for"] = None
+                self.bot.user_data[user_id][
+                    "creating_event"
+                ] = False  # Clear creation mode
+                await update.message.reply_text(
+                    "✅ Изображение прикреплено к мероприятию!\n\n"
+                    "Теперь вы можете продолжить настройку мероприятия или вернуться в меню.",
+                    reply_markup=create_event_creation_continue_keyboard(),
+                )
+            else:
+                await update.message.reply_text(
+                    "❌ Пожалуйста, отправьте изображение.\n"
+                    "Прикрепите фото к сообщению."
+                )
         else:
             logger.warning(
                 f"Неожиданное состояние ввода для пользователя {user_id}: waiting_for={waiting_for}"
             )
             await update.message.reply_text(
-                "❌ Неожиданный ввод. Используйте /admin для доступа к меню создания."
+                "❌ Неожиданный ввод. Вернитесь в меню создания для продолжения.",
+                reply_markup=create_back_to_admin_keyboard(),
             )
 
     async def handle_notification_input(self, update: Update, user_id: int):
@@ -138,7 +202,8 @@ class MessageHandlers:
                 f"Неожиданное состояние ввода уведомления для пользователя {user_id}: waiting_for={waiting_for}"
             )
             await update.message.reply_text(
-                "❌ Неожиданный ввод. Используйте /admin для доступа к меню уведомлений."
+                "❌ Неожиданный ввод. Вернитесь в меню администратора для продолжения.",
+                reply_markup=create_back_to_admin_keyboard(),
             )
 
     async def send_notification_to_event_users(
@@ -149,19 +214,21 @@ class MessageHandlers:
         event = db.get_event_by_id(event_id)
 
         if not event:
-            await update.message.reply_text("❌ Event not found.")
+            await update.message.reply_text("❌ Мероприятие не найдено.")
             return
 
         # Get registered users from both tables
         user_ids = db.get_registered_users_for_event(event_id)
 
         if not user_ids:
-            await update.message.reply_text("❌ No users registered for this event.")
+            await update.message.reply_text(
+                "❌ Нет зарегистрированных пользователей для этого мероприятия."
+            )
             return
 
         # Send notifications
         notification_text = (
-            f"🔔 *Event Reminder*\n\n📅 {event[0]} - {event[2]}\n\n{message}"
+            f"🔔 *Напоминание о мероприятии*\n\n📅 {event[0]} - {event[2]}\n\n{message}"
         )
 
         sent_count = 0

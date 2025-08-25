@@ -73,8 +73,8 @@ def create_admin_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
-def create_event_creation_keyboard() -> InlineKeyboardMarkup:
-    """Create event creation keyboard"""
+def create_event_creation_keyboard(user_data: dict = None) -> InlineKeyboardMarkup:
+    """Create event creation keyboard with dynamic image options"""
     keyboard = [
         [
             InlineKeyboardButton(
@@ -91,14 +91,56 @@ def create_event_creation_keyboard() -> InlineKeyboardMarkup:
                 "📄 Ввести описание", callback_data="create_description"
             )
         ],
-        [InlineKeyboardButton("✅ Создать мероприятие", callback_data="create_final")],
-        [InlineKeyboardButton("🗑️ Очистить данные", callback_data="create_clear")],
         [
             InlineKeyboardButton(
-                "🔙 Назад в меню администратора", callback_data="admin_back"
+                "👥 Установить лимит участников", callback_data="create_limit"
             )
         ],
     ]
+
+    # Add image-related buttons based on current state
+    if user_data and user_data.get("event_image_file_id"):
+        # Image is attached, show option to change or remove
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    "🖼️ Изменить изображение", callback_data="create_image"
+                )
+            ]
+        )
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    "🗑️ Удалить изображение", callback_data="remove_image"
+                )
+            ]
+        )
+    else:
+        # No image attached, show option to attach
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    "🖼️ Прикрепить изображение", callback_data="create_image"
+                )
+            ]
+        )
+
+    keyboard.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    "✅ Создать мероприятие", callback_data="create_final"
+                )
+            ],
+            [InlineKeyboardButton("🗑️ Очистить данные", callback_data="create_clear")],
+            [
+                InlineKeyboardButton(
+                    "🔙 Назад в меню администратора", callback_data="admin_back"
+                )
+            ],
+        ]
+    )
+
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -110,6 +152,19 @@ def create_back_to_admin_keyboard() -> InlineKeyboardMarkup:
                 "🔙 Назад в меню администратора", callback_data="admin_back"
             )
         ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def create_event_creation_continue_keyboard() -> InlineKeyboardMarkup:
+    """Create keyboard for continuing event creation or returning to event creation menu"""
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "🔙 Продолжить создание мероприятия", callback_data="admin_create"
+            )
+        ],
+        [InlineKeyboardButton("🏠 В меню администратора", callback_data="admin_back")],
     ]
     return InlineKeyboardMarkup(keyboard)
 

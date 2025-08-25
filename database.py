@@ -37,7 +37,9 @@ class DatabaseManager:
                     description TEXT,
                     event_date TEXT NOT NULL,
                     created_at TEXT NOT NULL,
-                    is_active BOOLEAN DEFAULT 1
+                    is_active BOOLEAN DEFAULT 1,
+                    attendee_limit INTEGER,
+                    image_file_id TEXT
                 )
             """
             )
@@ -75,15 +77,42 @@ class DatabaseManager:
             """
             )
 
+            # Add missing columns if they don't exist (for existing databases)
+            try:
+                cursor.execute("ALTER TABLE events ADD COLUMN attendee_limit INTEGER")
+            except sqlite3.OperationalError:
+                # Column already exists
+                pass
+
+            try:
+                cursor.execute("ALTER TABLE events ADD COLUMN image_file_id TEXT")
+            except sqlite3.OperationalError:
+                # Column already exists
+                pass
+
             conn.commit()
 
-    def create_event(self, title: str, description: str, event_date: str) -> int:
+    def create_event(
+        self,
+        title: str,
+        description: str,
+        event_date: str,
+        attendee_limit: int = None,
+        image_file_id: str = None,
+    ) -> int:
         """Create a new event and return its ID"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO events (title, description, event_date, created_at) VALUES (?, ?, ?, ?)",
-                (title, description, event_date, datetime.now().isoformat()),
+                "INSERT INTO events (title, description, event_date, created_at, attendee_limit, image_file_id) VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    title,
+                    description,
+                    event_date,
+                    datetime.now().isoformat(),
+                    attendee_limit,
+                    image_file_id,
+                ),
             )
             event_id = cursor.lastrowid
             conn.commit()
@@ -94,7 +123,7 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id, title, event_date, description FROM events WHERE is_active = 1"
+                "SELECT id, title, event_date, description, attendee_limit, image_file_id FROM events WHERE is_active = 1"
             )
             return cursor.fetchall()
 
@@ -104,12 +133,13 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT e.id, e.title, e.event_date, e.is_active, 
-                       (COUNT(DISTINCT r.user_id) + COUNT(DISTINCT rs.user_id)) as total_users
+                SELECT e.id, e.title, e.event_date, e.is_active,
+                       (COUNT(DISTINCT r.user_id) + COUNT(DISTINCT rs.user_id)) as total_users,
+                       e.attendee_limit
                 FROM events e
                 LEFT JOIN registrations r ON e.id = r.event_id
                 LEFT JOIN rsvp_responses rs ON e.id = rs.event_id
-                GROUP BY e.id, e.title, e.event_date, e.is_active
+                GROUP BY e.id, e.title, e.event_date, e.is_active, e.attendee_limit
                 ORDER BY e.event_date DESC
             """
             )
@@ -120,7 +150,7 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT title, description, event_date FROM events WHERE id = ?",
+                "SELECT title, description, event_date, attendee_limit, image_file_id FROM events WHERE id = ?",
                 (event_id,),
             )
             return cursor.fetchone()
@@ -190,6 +220,40 @@ class DatabaseManager:
                 (event_id, event_id),
             )
             return [row[0] for row in cursor.fetchall()]
+
+    def get_registration_count(self, event_id: int) -> int:
+        """Get the current registration count for an event"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT COUNT(DISTINCT user_id) FROM (
+                    SELECT user_id FROM registrations WHERE event_id = ?
+                    UNION
+                    SELECT user_id FROM rsvp_responses WHERE event_id = ?
+                )
+            """,
+                (event_id, event_id),
+            )
+            result = cursor.fetchone()
+            return result[0] if result else 0
+
+    def is_event_at_capacity(self, event_id: int) -> bool:
+        """Check if an event has reached its attendee limit"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT attendee_limit FROM events WHERE id = ?",
+                (event_id,),
+            )
+            result = cursor.fetchone()
+
+            if not result or result[0] is None:
+                return False  # No limit set
+
+            limit = result[0]
+            current_count = self.get_registration_count(event_id)
+            return current_count >= limit
 
     def set_rsvp_response(
         self, event_id: int, user_id: int, username: str, first_name: str, response: str
@@ -318,13 +382,14 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT e.id, e.title, e.event_date, 
-                       (COUNT(DISTINCT r.user_id) + COUNT(DISTINCT rs.user_id)) as total_users
+                SELECT e.id, e.title, e.event_date,
+                       (COUNT(DISTINCT r.user_id) + COUNT(DISTINCT rs.user_id)) as total_users,
+                       e.attendee_limit
                 FROM events e
                 LEFT JOIN registrations r ON e.id = r.event_id
                 LEFT JOIN rsvp_responses rs ON e.id = rs.event_id
                 WHERE e.is_active = 1
-                GROUP BY e.id, e.title, e.event_date
+                GROUP BY e.id, e.title, e.event_date, e.attendee_limit
                 ORDER BY e.event_date
             """
             )
@@ -336,13 +401,14 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT e.id, e.title, e.event_date, 
-                       (COUNT(DISTINCT r.user_id) + COUNT(DISTINCT rs.user_id)) as total_users
+                SELECT e.id, e.title, e.event_date,
+                       (COUNT(DISTINCT r.user_id) + COUNT(DISTINCT rs.user_id)) as total_users,
+                       e.attendee_limit
                 FROM events e
                 LEFT JOIN registrations r ON e.id = r.event_id
                 LEFT JOIN rsvp_responses rs ON e.id = rs.event_id
                 WHERE e.is_active = 1
-                GROUP BY e.id, e.title, e.event_date
+                GROUP BY e.id, e.title, e.event_date, e.attendee_limit
                 ORDER BY e.event_date DESC
             """
             )

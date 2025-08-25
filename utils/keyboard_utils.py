@@ -310,3 +310,19 @@ def create_notification_keyboard(events: List[Tuple]) -> InlineKeyboardMarkup:
         ]
     )
     return InlineKeyboardMarkup(keyboard)
+
+
+def create_confirmation_keyboard(
+    confirm_callback: str,
+    cancel_callback: str,
+    confirm_text: str = "✅ Подтвердить",
+    cancel_text: str = "❌ Отмена",
+) -> InlineKeyboardMarkup:
+    """Create a confirmation keyboard with custom callbacks and texts"""
+    keyboard = [
+        [
+            InlineKeyboardButton(confirm_text, callback_data=confirm_callback),
+            InlineKeyboardButton(cancel_text, callback_data=cancel_callback),
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)

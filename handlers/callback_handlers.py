@@ -41,6 +41,10 @@ class CallbackHandlers:
             await self.handle_rsvp_response(query)
         elif query.data.startswith("post_card_"):
             await self.handle_post_card_selection(query)
+        elif query.data.startswith("save_and_post_"):
+            await self.handle_save_and_post(query)
+        elif query.data.startswith("post_without_save_"):
+            await self.handle_post_without_save(query)
         elif query.data.startswith("view_stats_"):
             await self.handle_view_stats_selection(query)
         elif query.data.startswith("check_users_"):
@@ -158,9 +162,21 @@ class CallbackHandlers:
 
         # Update the message
         try:
-            await query.edit_message_text(
-                text=message, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
-            )
+            # Check if the original message has a photo (was sent with reply_photo)
+            if query.message.photo:
+                # Edit caption for photo messages
+                await query.edit_message_caption(
+                    caption=message,
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=reply_markup,
+                )
+            else:
+                # Edit text for regular text messages
+                await query.edit_message_text(
+                    text=message,
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=reply_markup,
+                )
             await query.answer(action_message)
         except Exception as e:
             logger.error(f"Error updating RSVP message: {e}")
@@ -173,6 +189,66 @@ class CallbackHandlers:
             return
 
         event_id = int(query.data.split("_")[2])
+        user_id = query.from_user.id
+
+        # Check if user has unsaved changes for this event
+        if await self._has_unsaved_changes(user_id, event_id):
+            await self._handle_unsaved_changes_warning(query, event_id)
+            return
+
+        await self._post_event_card(query, event_id)
+
+    async def _has_unsaved_changes(self, user_id: int, event_id: int) -> bool:
+        """Check if user has unsaved changes for the specified event"""
+        if user_id not in self.bot.user_data:
+            return False
+
+        user_data = self.bot.user_data[user_id]
+
+        # Check if user is currently editing this event
+        if (
+            user_data.get("editing_event")
+            and user_data.get("editing_event_id") == event_id
+        ):
+
+            # Check if there are any pending changes
+            pending_changes = [
+                user_data.get("event_title"),
+                user_data.get("event_date"),
+                user_data.get("event_description"),
+                user_data.get("attendee_limit"),
+                user_data.get("event_image_file_id"),
+            ]
+
+            return any(change is not None for change in pending_changes)
+
+        return False
+
+    async def _handle_unsaved_changes_warning(self, query, event_id: int):
+        """Handle case where user has unsaved changes"""
+        from utils.keyboard_utils import create_confirmation_keyboard
+
+        warning_message = (
+            "⚠️ *Внимание: У вас есть несохраненные изменения*\n\n"
+            "Вы внесли изменения в мероприятие, но не сохранили их.\n"
+            "Карточка будет опубликована со старыми данными.\n\n"
+            "Хотите сохранить изменения перед публикацией?"
+        )
+
+        # Create keyboard with save and proceed options
+        reply_markup = create_confirmation_keyboard(
+            confirm_callback=f"save_and_post_{event_id}",
+            cancel_callback=f"post_without_save_{event_id}",
+            confirm_text="💾 Сохранить и опубликовать",
+            cancel_text="📤 Опубликовать без сохранения",
+        )
+
+        await query.edit_message_text(
+            warning_message, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
+        )
+
+    async def _post_event_card(self, query, event_id: int):
+        """Post the event card to the chat"""
         event = db.get_event_by_id(event_id)
 
         if not event:
@@ -206,6 +282,100 @@ class CallbackHandlers:
             )
 
         await query.answer("✅ Карточка мероприятия опубликована!")
+
+    async def handle_save_and_post(self, query):
+        """Handle saving changes and then posting the event card"""
+        if not config.is_admin(query.from_user.id):
+            await query.answer("❌ Доступ запрещен.")
+            return
+
+        event_id = int(query.data.split("_")[3])  # save_and_post_{event_id}
+        user_id = query.from_user.id
+
+        # First save the changes
+        success = self._save_event_changes(user_id, event_id)
+
+        if success:
+            # Then post the card with the updated data
+            await self._post_event_card(query, event_id)
+            # Clear the edit data after successful save and post
+            if user_id in self.bot.user_data:
+                self.bot.user_data[user_id].clear()
+        else:
+            await query.edit_message_text("❌ Ошибка сохранения изменений.")
+
+    async def handle_post_without_save(self, query):
+        """Handle posting the event card without saving changes"""
+        if not config.is_admin(query.from_user.id):
+            await query.answer("❌ Доступ запрещен.")
+            return
+
+        event_id = int(query.data.split("_")[3])  # post_without_save_{event_id}
+
+        # Post the card with current database data (without saving changes)
+        await self._post_event_card(query, event_id)
+
+        # Clear the edit data without saving
+        user_id = query.from_user.id
+        if user_id in self.bot.user_data:
+            self.bot.user_data[user_id].clear()
+
+    def _save_event_changes(self, user_id: int, event_id: int) -> bool:
+        """Save event changes to database"""
+        if user_id not in self.bot.user_data:
+            logger.warning(f"User {user_id} not found in bot.user_data")
+            return False
+
+        user_data = self.bot.user_data[user_id]
+        logger.info(f"Saving changes for user {user_id}, event {event_id}")
+        logger.info(f"User data keys: {list(user_data.keys())}")
+
+        if (
+            not user_data.get("editing_event")
+            or user_data.get("editing_event_id") != event_id
+        ):
+            logger.warning(f"User {user_id} is not editing event {event_id}")
+            return False
+
+        # Get the changes (only non-None values)
+        title = user_data.get("event_title")
+        event_date = user_data.get("event_date")
+        description = user_data.get("event_description")
+        attendee_limit = user_data.get("attendee_limit")
+        image_file_id = user_data.get("event_image_file_id")
+
+        # Check if there are any changes to save
+        changes = {
+            "title": title,
+            "event_date": event_date,
+            "description": description,
+            "attendee_limit": attendee_limit,
+            "image_file_id": image_file_id,
+        }
+        actual_changes = {k: v for k, v in changes.items() if v is not None}
+
+        if not actual_changes:
+            logger.warning(f"No changes to save for user {user_id}, event {event_id}")
+            return False
+
+        logger.info(f"Saving changes: {actual_changes}")
+
+        # Update event in database
+        success = db.update_event(
+            event_id=event_id,
+            title=title,
+            description=description,
+            event_date=event_date,
+            attendee_limit=attendee_limit,
+            image_file_id=image_file_id,
+        )
+
+        if success:
+            logger.info(f"Successfully saved changes for event {event_id}")
+        else:
+            logger.error(f"Failed to save changes for event {event_id}")
+
+        return success
 
     async def handle_view_stats_selection(self, query):
         """Handle event selection for viewing RSVP statistics"""

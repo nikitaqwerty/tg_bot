@@ -401,7 +401,7 @@ class AdminHandlers:
         elif query.data == "admin_notify":
             await self.show_notify_menu(query)
         elif query.data == "admin_back":
-            await self.admin_menu_from_callback(query)
+            await self.handle_admin_back_with_auto_save(query)
 
     async def start_event_creation(self, query):
         """Start the event creation dialogue"""
@@ -535,6 +535,102 @@ class AdminHandlers:
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=reply_markup,
         )
+
+    async def handle_admin_back_with_auto_save(self, query):
+        """Handle admin back with auto-save functionality"""
+        user_id = query.from_user.id
+
+        # Check if user has unsaved changes and auto-save them
+        if user_id in self.bot.user_data and self.bot.user_data[user_id].get(
+            "editing_event"
+        ):
+            user_data = self.bot.user_data[user_id]
+            event_id = user_data.get("editing_event_id")
+
+            if event_id and self._has_unsaved_changes(user_id, event_id):
+                # Auto-save the changes
+                success = self._auto_save_event_changes(user_id, event_id)
+
+                if success:
+                    logger.info(
+                        f"Auto-saved changes for event {event_id} by user {user_id}"
+                    )
+                    # Clear the edit data after successful auto-save
+                    self.bot.user_data[user_id].clear()
+
+                    # Show confirmation message briefly before showing admin menu
+                    await query.answer("✅ Изменения автоматически сохранены!")
+
+                    # Wait a moment before showing the admin menu
+                    import asyncio
+
+                    await asyncio.sleep(1)
+                else:
+                    logger.error(
+                        f"Failed to auto-save changes for event {event_id} by user {user_id}"
+                    )
+                    await query.answer("⚠️ Не удалось автоматически сохранить изменения")
+
+        # Show admin menu
+        await self.admin_menu_from_callback(query)
+
+    def _has_unsaved_changes(self, user_id: int, event_id: int) -> bool:
+        """Check if user has unsaved changes for the specified event"""
+        if user_id not in self.bot.user_data:
+            return False
+
+        user_data = self.bot.user_data[user_id]
+
+        # Check if user is currently editing this event
+        if (
+            user_data.get("editing_event")
+            and user_data.get("editing_event_id") == event_id
+        ):
+
+            # Check if there are any pending changes
+            pending_changes = [
+                user_data.get("event_title"),
+                user_data.get("event_date"),
+                user_data.get("event_description"),
+                user_data.get("attendee_limit"),
+                user_data.get("event_image_file_id"),
+            ]
+
+            return any(change is not None for change in pending_changes)
+
+        return False
+
+    def _auto_save_event_changes(self, user_id: int, event_id: int) -> bool:
+        """Auto-save event changes to database"""
+        if user_id not in self.bot.user_data:
+            return False
+
+        user_data = self.bot.user_data[user_id]
+
+        if (
+            not user_data.get("editing_event")
+            or user_data.get("editing_event_id") != event_id
+        ):
+            return False
+
+        # Get the changes (only non-None values)
+        title = user_data.get("event_title")
+        event_date = user_data.get("event_date")
+        description = user_data.get("event_description")
+        attendee_limit = user_data.get("attendee_limit")
+        image_file_id = user_data.get("event_image_file_id")
+
+        # Update event in database
+        success = db.update_event(
+            event_id=event_id,
+            title=title,
+            description=description,
+            event_date=event_date,
+            attendee_limit=attendee_limit,
+            image_file_id=image_file_id,
+        )
+
+        return success
 
     async def admin_menu_from_callback(self, query):
         """Show admin menu from callback query"""

@@ -103,9 +103,12 @@ class CallbackHandlers:
                 limit_text += f"/{attendee_limit}"
             limit_text += ")"
 
+            from utils.keyboard_utils import create_back_to_admin_keyboard
+
             await query.edit_message_text(
                 f"✅ Успешно зарегистрированы на '{title}' {event_date}!\n"
-                f"Вы получите уведомление перед мероприятием.{limit_text}"
+                f"Вы получите уведомление перед мероприятием.{limit_text}",
+                reply_markup=create_back_to_admin_keyboard(),
             )
         else:
             await query.edit_message_text("❌ Ошибка регистрации. Попробуйте снова.")
@@ -416,7 +419,13 @@ class CallbackHandlers:
         else:
             text += f"\n\n👥 *Участники:*\nПока нет подтверждений участия"
 
-        await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN)
+        from utils.keyboard_utils import create_back_to_admin_keyboard
+
+        await query.edit_message_text(
+            text,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=create_back_to_admin_keyboard(),
+        )
 
     async def handle_check_users_selection(self, query):
         """Handle event selection for checking user status"""
@@ -465,7 +474,13 @@ class CallbackHandlers:
             event[0], event[2], reachable_users, unreachable_users
         )
 
-        await query.edit_message_text(report, parse_mode=ParseMode.MARKDOWN)
+        from utils.keyboard_utils import create_back_to_admin_keyboard
+
+        await query.edit_message_text(
+            report,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=create_back_to_admin_keyboard(),
+        )
 
     async def handle_admin_callback(self, query):
         """Handle admin callbacks"""
@@ -659,7 +674,11 @@ class CallbackHandlers:
 
             success_message += f"\nID мероприятия: {event_id}"
 
-            await query.edit_message_text(success_message)
+            from utils.keyboard_utils import create_back_to_admin_keyboard
+
+            await query.edit_message_text(
+                success_message, reply_markup=create_back_to_admin_keyboard()
+            )
 
         except Exception as e:
             await query.edit_message_text(f"❌ Ошибка создания мероприятия: {str(e)}")
@@ -671,9 +690,12 @@ class CallbackHandlers:
         if user_id in self.bot.user_data:
             self.bot.user_data[user_id].clear()
 
+        from utils.keyboard_utils import create_back_to_admin_keyboard
+
         await query.edit_message_text(
             "🗑️ Данные создания мероприятия очищены!\n\n"
-            "Все поля сброшены. Вы можете начать заново создание мероприятия."
+            "Все поля сброшены. Вы можете начать заново создание мероприятия.",
+            reply_markup=create_back_to_admin_keyboard(),
         )
 
     async def handle_edit_event_selection(self, query):
@@ -851,9 +873,12 @@ class CallbackHandlers:
             if user_id in self.bot.user_data:
                 self.bot.user_data[user_id].clear()
 
+            from utils.keyboard_utils import create_back_to_admin_keyboard
+
             await query.edit_message_text(
                 "✅ Изменения успешно сохранены!\n\n"
-                f"Мероприятие ID: {event_id} обновлено."
+                f"Мероприятие ID: {event_id} обновлено.",
+                reply_markup=create_back_to_admin_keyboard(),
             )
         else:
             await query.edit_message_text("❌ Ошибка сохранения изменений.")
@@ -877,8 +902,10 @@ class CallbackHandlers:
         user_data = self.bot.user_data.get(user_id, {})
         original_event = self.bot.user_data.get(user_id, {}).get("original_event", {})
         status_text = format_event_edit_status(user_data, original_event)
-        reply_markup = create_event_edit_keyboard(user_data)
+        from utils.keyboard_utils import create_back_to_admin_keyboard
 
         await query.edit_message_text(
-            status_text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
+            status_text,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=create_back_to_admin_keyboard(),
         )

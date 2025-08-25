@@ -92,7 +92,9 @@ class AdminHandlers:
             if image_file_id:
                 success_message += "\n🖼️ Изображение прикреплено к мероприятию!"
 
-            await update.message.reply_text(success_message)
+            await update.message.reply_text(
+                success_message, reply_markup=create_back_to_admin_keyboard()
+            )
 
         except ValueError:
             await update.message.reply_text(
@@ -157,7 +159,11 @@ class AdminHandlers:
 
         events = db.get_all_events()
         text = format_admin_events_list(events)
-        await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+        await update.message.reply_text(
+            text,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=create_back_to_admin_keyboard(),
+        )
 
     async def event_users(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """List users registered for specific event - Admin only"""
@@ -179,7 +185,11 @@ class AdminHandlers:
 
             users = db.get_event_registrations(event_id)
             text = format_event_users_list(event[0], event[2], users)
-            await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(
+                text,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=create_back_to_admin_keyboard(),
+            )
 
         except ValueError:
             await update.message.reply_text("❌ Неверный ID мероприятия.")
@@ -240,7 +250,9 @@ class AdminHandlers:
             status_message = format_notification_status(
                 sent_count, len(user_ids), failed_count, blocked_users
             )
-            await update.message.reply_text(status_message)
+            await update.message.reply_text(
+                status_message, reply_markup=create_back_to_admin_keyboard()
+            )
 
         except ValueError:
             await update.message.reply_text("❌ Неверный ID мероприятия.")
@@ -287,11 +299,23 @@ class AdminHandlers:
                     parse_mode=ParseMode.MARKDOWN,
                     reply_markup=reply_markup,
                 )
+
+                # Send a confirmation message with back button
+                await update.message.reply_text(
+                    "✅ Карточка мероприятия опубликована!",
+                    reply_markup=create_back_to_admin_keyboard(),
+                )
             else:
                 await update.message.reply_text(
                     text=message,
                     parse_mode=ParseMode.MARKDOWN,
                     reply_markup=reply_markup,
+                )
+
+                # Send a confirmation message with back button
+                await update.message.reply_text(
+                    "✅ Карточка мероприятия опубликована!",
+                    reply_markup=create_back_to_admin_keyboard(),
                 )
 
         except ValueError:
@@ -317,7 +341,11 @@ class AdminHandlers:
 
             stats = db.get_rsvp_stats(event_id)
             text = format_rsvp_stats(event[0], event[2], stats)
-            await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(
+                text,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=create_back_to_admin_keyboard(),
+            )
 
         except ValueError:
             await update.message.reply_text("❌ Неверный ID мероприятия.")
@@ -370,7 +398,11 @@ class AdminHandlers:
             report = format_user_status_report(
                 event[0], event[2], reachable_users, unreachable_users
             )
-            await update.message.reply_text(report, parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(
+                report,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=create_back_to_admin_keyboard(),
+            )
 
         except ValueError:
             await update.message.reply_text("❌ Неверный ID мероприятия.")
@@ -419,13 +451,21 @@ class AdminHandlers:
         """Show events for admin"""
         events = db.get_all_events()
         text = format_admin_events_list(events)
-        await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN)
+        await query.edit_message_text(
+            text,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=create_back_to_admin_keyboard(),
+        )
 
     async def show_registrations(self, query):
         """Show registrations for admin"""
         events = db.get_events_with_registration_counts()
         text = format_registrations_list(events)
-        await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN)
+        await query.edit_message_text(
+            text,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=create_back_to_admin_keyboard(),
+        )
 
     async def show_post_card_menu(self, query):
         """Show menu for posting event cards"""

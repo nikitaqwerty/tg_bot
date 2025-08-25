@@ -447,13 +447,12 @@ class DatabaseManager:
             cursor.execute(
                 """
                 SELECT e.id, e.title, e.event_date,
-                       (COUNT(DISTINCT r.user_id) + COUNT(DISTINCT rs.user_id)) as total_users,
-                       e.attendee_limit
+                       (COUNT(DISTINCT r.user_id) + COUNT(DISTINCT rs.user_id)) as total_users
                 FROM events e
                 LEFT JOIN registrations r ON e.id = r.event_id
                 LEFT JOIN rsvp_responses rs ON e.id = rs.event_id
                 WHERE e.is_active = 1
-                GROUP BY e.id, e.title, e.event_date, e.attendee_limit
+                GROUP BY e.id, e.title, e.event_date
                 ORDER BY e.event_date DESC
             """
             )

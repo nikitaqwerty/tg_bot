@@ -11,6 +11,7 @@ from utils.keyboard_utils import (
     create_admin_menu_keyboard,
     create_back_to_admin_keyboard,
     create_event_creation_keyboard,
+    create_event_edit_selection_keyboard,
     create_event_selection_keyboard,
     create_notification_keyboard,
 )
@@ -385,6 +386,8 @@ class AdminHandlers:
 
         if query.data == "admin_create":
             await self.start_event_creation(query)
+        elif query.data == "admin_edit":
+            await self.show_edit_menu(query)
         elif query.data == "admin_list":
             await self.show_admin_events(query)
         elif query.data == "admin_registrations":
@@ -481,6 +484,31 @@ class AdminHandlers:
         await query.edit_message_text(
             "🔍 *Проверить статус пользователей*\n\n"
             "Выберите мероприятие для проверки, какие пользователи могут получать уведомления:",
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=reply_markup,
+        )
+
+    async def show_edit_menu(self, query):
+        """Show event selection menu for editing"""
+        if not self.is_admin(query.from_user.id):
+            await query.edit_message_text("❌ Доступ запрещен.")
+            return
+
+        events = db.get_active_events()
+        if not events:
+            await query.edit_message_text(
+                "❌ Активные мероприятия не найдены.\n\n"
+                "Сначала создайте мероприятие через панель администратора."
+            )
+            return
+
+        # Extract event_id, title, event_date from events
+        event_data = [(event[0], event[1], event[2]) for event in events]
+        reply_markup = create_event_edit_selection_keyboard(event_data)
+
+        await query.edit_message_text(
+            "✏️ *Редактирование мероприятия*\n\n"
+            "Выберите мероприятие для редактирования:",
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=reply_markup,
         )

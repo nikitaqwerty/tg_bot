@@ -118,6 +118,51 @@ class DatabaseManager:
             conn.commit()
             return event_id
 
+    def update_event(
+        self,
+        event_id: int,
+        title: str = None,
+        description: str = None,
+        event_date: str = None,
+        attendee_limit: int = None,
+        image_file_id: str = None,
+    ) -> bool:
+        """Update an existing event. Only non-None values will be updated"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Build the update query dynamically based on provided values
+            update_fields = []
+            values = []
+
+            if title is not None:
+                update_fields.append("title = ?")
+                values.append(title)
+            if description is not None:
+                update_fields.append("description = ?")
+                values.append(description)
+            if event_date is not None:
+                update_fields.append("event_date = ?")
+                values.append(event_date)
+            if attendee_limit is not None:
+                update_fields.append("attendee_limit = ?")
+                values.append(attendee_limit)
+            if image_file_id is not None:
+                update_fields.append("image_file_id = ?")
+                values.append(image_file_id)
+
+            if not update_fields:
+                return False  # Nothing to update
+
+            # Add event_id to values
+            values.append(event_id)
+
+            query = f"UPDATE events SET {', '.join(update_fields)} WHERE id = ?"
+            cursor.execute(query, values)
+            conn.commit()
+
+            return cursor.rowcount > 0
+
     def get_active_events(self) -> List[Tuple]:
         """Get all active events"""
         with self.get_connection() as conn:

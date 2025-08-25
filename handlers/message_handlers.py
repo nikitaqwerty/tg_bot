@@ -39,6 +39,14 @@ class MessageHandlers:
                 f"Processing event creation input from user {user_id}: {update.message.text}"
             )
             await self.handle_event_creation_input(update, user_id)
+        # Check if user is in event editing mode
+        elif user_id in self.bot.user_data and self.bot.user_data[user_id].get(
+            "editing_event"
+        ):
+            logger.info(
+                f"Processing event edit input from user {user_id}: {update.message.text}"
+            )
+            await self.handle_event_edit_input(update, user_id)
         # Check if user is in notification creation mode
         elif user_id in self.bot.user_data and self.bot.user_data[user_id].get(
             "creating_notification"
@@ -167,6 +175,119 @@ class MessageHandlers:
             )
             await update.message.reply_text(
                 "❌ Неожиданный ввод. Вернитесь в меню создания для продолжения.",
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
+    async def handle_event_edit_input(self, update: Update, user_id: int):
+        """Handle user input during event editing"""
+        user_input = update.message.text
+        waiting_for = self.bot.user_data[user_id].get("waiting_for")
+
+        logger.info(
+            f"Handling event edit input for user {user_id}, waiting_for: {waiting_for}, input: {user_input}"
+        )
+
+        if waiting_for == "edit_title":
+            logger.info(f"Setting edited title for user {user_id}: {user_input}")
+            self.bot.user_data[user_id]["event_title"] = user_input
+            self.bot.user_data[user_id]["waiting_for"] = None
+            self.bot.user_data[user_id]["editing_event"] = False  # Clear editing mode
+            await update.message.reply_text(
+                f"✅ Название изменено: {user_input}\n\n"
+                "Теперь вы можете продолжить редактирование или сохранить изменения.",
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
+        elif waiting_for == "edit_date":
+            try:
+                # Validate date format
+                datetime.strptime(user_input, "%Y-%m-%d")
+                self.bot.user_data[user_id]["event_date"] = user_input
+                self.bot.user_data[user_id]["waiting_for"] = None
+                self.bot.user_data[user_id][
+                    "editing_event"
+                ] = False  # Clear editing mode
+                await update.message.reply_text(
+                    f"✅ Дата изменена: {user_input}\n\n"
+                    "Теперь вы можете продолжить редактирование или сохранить изменения.",
+                    reply_markup=create_back_to_admin_keyboard(),
+                )
+            except ValueError:
+                await update.message.reply_text(
+                    "❌ Неверный формат даты. Пожалуйста, используйте формат ГГГГ-ММ-ДД.\n"
+                    "Пример: 2024-12-25"
+                )
+
+        elif waiting_for == "edit_description":
+            self.bot.user_data[user_id]["event_description"] = user_input
+            self.bot.user_data[user_id]["waiting_for"] = None
+            self.bot.user_data[user_id]["editing_event"] = False  # Clear editing mode
+            await update.message.reply_text(
+                f"✅ Описание изменено: {user_input}\n\n"
+                "Теперь вы можете продолжить редактирование или сохранить изменения.",
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
+        elif waiting_for == "edit_attendee_limit":
+            try:
+                # Parse and validate the limit
+                limit = int(user_input.strip())
+                if limit < 0:
+                    raise ValueError("Limit must be non-negative")
+
+                if limit == 0:
+                    # Set to None to indicate no limit
+                    self.bot.user_data[user_id]["attendee_limit"] = None
+                    await update.message.reply_text(
+                        "✅ Лимит участников снят (без ограничений)\n\n"
+                        "Теперь вы можете продолжить редактирование или сохранить изменения.",
+                        reply_markup=create_back_to_admin_keyboard(),
+                    )
+                else:
+                    self.bot.user_data[user_id]["attendee_limit"] = limit
+                    await update.message.reply_text(
+                        f"✅ Лимит участников изменен: {limit}\n\n"
+                        "Теперь вы можете продолжить редактирование или сохранить изменения.",
+                        reply_markup=create_back_to_admin_keyboard(),
+                    )
+
+                self.bot.user_data[user_id]["waiting_for"] = None
+                self.bot.user_data[user_id][
+                    "editing_event"
+                ] = False  # Clear editing mode
+
+            except ValueError:
+                await update.message.reply_text(
+                    "❌ Неверный формат лимита. Пожалуйста, введите положительное число или 0 для снятия лимита.\n"
+                    "Пример: 25"
+                )
+
+        elif waiting_for == "edit_event_image":
+            # Handle image attachment
+            if update.message.photo:
+                # Get the highest resolution photo
+                image_file_id = update.message.photo[-1].file_id
+                self.bot.user_data[user_id]["event_image_file_id"] = image_file_id
+                self.bot.user_data[user_id]["waiting_for"] = None
+                self.bot.user_data[user_id][
+                    "editing_event"
+                ] = False  # Clear editing mode
+                await update.message.reply_text(
+                    "✅ Изображение изменено!\n\n"
+                    "Теперь вы можете продолжить редактирование или сохранить изменения.",
+                    reply_markup=create_back_to_admin_keyboard(),
+                )
+            else:
+                await update.message.reply_text(
+                    "❌ Пожалуйста, отправьте изображение.\n"
+                    "Прикрепите фото к сообщению."
+                )
+        else:
+            logger.warning(
+                f"Неожиданное состояние ввода редактирования для пользователя {user_id}: waiting_for={waiting_for}"
+            )
+            await update.message.reply_text(
+                "❌ Неожиданный ввод. Вернитесь в меню редактирования для продолжения.",
                 reply_markup=create_back_to_admin_keyboard(),
             )
 

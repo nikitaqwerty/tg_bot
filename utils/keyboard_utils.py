@@ -47,6 +47,11 @@ def create_admin_menu_keyboard() -> InlineKeyboardMarkup:
     """Create admin menu keyboard"""
     keyboard = [
         [InlineKeyboardButton("📅 Создать мероприятие", callback_data="admin_create")],
+        [
+            InlineKeyboardButton(
+                "✏️ Редактировать мероприятие", callback_data="admin_edit"
+            )
+        ],
         [InlineKeyboardButton("📋 Список мероприятий", callback_data="admin_list")],
         [
             InlineKeyboardButton(
@@ -144,6 +149,73 @@ def create_event_creation_keyboard(user_data: dict = None) -> InlineKeyboardMark
     return InlineKeyboardMarkup(keyboard)
 
 
+def create_event_edit_keyboard(user_data: dict = None) -> InlineKeyboardMarkup:
+    """Create event edit keyboard with dynamic options"""
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "📝 Изменить название мероприятия", callback_data="edit_title"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "📅 Изменить дату мероприятия", callback_data="edit_date"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "📄 Изменить описание", callback_data="edit_description"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "👥 Изменить лимит участников", callback_data="edit_limit"
+            )
+        ],
+    ]
+
+    # Add image-related buttons based on current state
+    if user_data and user_data.get("event_image_file_id"):
+        # Image is attached, show option to change or remove
+        keyboard.append(
+            [InlineKeyboardButton("🖼️ Изменить изображение", callback_data="edit_image")]
+        )
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    "🗑️ Удалить изображение", callback_data="edit_remove_image"
+                )
+            ]
+        )
+    else:
+        # No image attached, show option to attach
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    "🖼️ Прикрепить изображение", callback_data="edit_image"
+                )
+            ]
+        )
+
+    keyboard.extend(
+        [
+            [
+                InlineKeyboardButton(
+                    "✅ Сохранить изменения", callback_data="edit_final"
+                )
+            ],
+            [InlineKeyboardButton("🗑️ Очистить изменения", callback_data="edit_clear")],
+            [
+                InlineKeyboardButton(
+                    "🔙 Назад в меню администратора", callback_data="admin_back"
+                )
+            ],
+        ]
+    )
+
+    return InlineKeyboardMarkup(keyboard)
+
+
 def create_back_to_admin_keyboard() -> InlineKeyboardMarkup:
     """Create back to admin menu keyboard"""
     keyboard = [
@@ -180,6 +252,29 @@ def create_event_selection_keyboard(
                 InlineKeyboardButton(
                     f"{title} - {event_date}",
                     callback_data=f"{callback_prefix}_{event_id}",
+                )
+            ]
+        )
+
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                "🔙 Назад в меню администратора", callback_data="admin_back"
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(keyboard)
+
+
+def create_event_edit_selection_keyboard(events: List[Tuple]) -> InlineKeyboardMarkup:
+    """Create keyboard for selecting an event to edit"""
+    keyboard = []
+    for event_id, title, event_date in events:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"✏️ {title} - {event_date}",
+                    callback_data=f"edit_event_{event_id}",
                 )
             ]
         )

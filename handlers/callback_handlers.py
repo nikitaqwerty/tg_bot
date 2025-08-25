@@ -7,11 +7,16 @@ from telegram.ext import ContextTypes
 
 from config import config
 from database import db
-from utils.keyboard_utils import create_event_creation_keyboard, create_rsvp_keyboard
+from utils.keyboard_utils import (
+    create_event_creation_keyboard,
+    create_event_edit_keyboard,
+    create_rsvp_keyboard,
+)
 from utils.message_utils import (
     escape_markdown,
     format_event_card_message,
     format_event_creation_status,
+    format_event_edit_status,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,12 +45,16 @@ class CallbackHandlers:
             await self.handle_view_stats_selection(query)
         elif query.data.startswith("check_users_"):
             await self.handle_check_users_selection(query)
+        elif query.data.startswith("edit_event_"):
+            await self.handle_edit_event_selection(query)
         elif query.data.startswith("admin_"):
             await self.handle_admin_callback(query)
         elif query.data.startswith("notify_event_"):
             await self.handle_notify_event_selection(query)
         elif query.data.startswith("create_"):
             await self.handle_event_creation_step(query)
+        elif query.data.startswith("edit_"):
+            await self.handle_event_edit_step(query)
         else:
             logger.warning(f"Неизвестные данные обратного вызова: {query.data}")
 
@@ -67,7 +76,7 @@ class CallbackHandlers:
             await query.edit_message_text("❌ Мероприятие не найдено.")
             return
 
-        title, description, event_date, attendee_limit = event
+        title, description, event_date, attendee_limit, _ = event
 
         # Check if event is at capacity
         if db.is_event_at_capacity(event_id):
@@ -115,7 +124,7 @@ class CallbackHandlers:
             await query.answer("❌ Мероприятие не найдено.")
             return
 
-        title, description, event_date, attendee_limit = event
+        title, description, event_date, attendee_limit, _ = event
 
         # Check if event is at capacity (only for positive responses)
         if response == "иду" and not db.is_user_registered(event_id, user.id):
@@ -136,7 +145,6 @@ class CallbackHandlers:
         recent_responses = db.get_recent_rsvp_responses(event_id)
 
         # Update the message with current status
-        title, description, event_date = event
 
         # Format event card message with updated stats
         from utils.message_utils import format_event_card_message
@@ -171,7 +179,7 @@ class CallbackHandlers:
             await query.answer("❌ Мероприятие не найдено или неактивно.")
             return
 
-        title, description, event_date, attendee_limit = event[:4]
+        title, description, event_date, attendee_limit, _ = event
         image_file_id = event[4] if len(event) > 4 else None
 
         # Create RSVP keyboard (no user_id for initial posting)
@@ -496,4 +504,211 @@ class CallbackHandlers:
         await query.edit_message_text(
             "🗑️ Данные создания мероприятия очищены!\n\n"
             "Все поля сброшены. Вы можете начать заново создание мероприятия."
+        )
+
+    async def handle_edit_event_selection(self, query):
+        """Handle event selection for editing"""
+        if not config.is_admin(query.from_user.id):
+            await query.edit_message_text("❌ Доступ запрещен.")
+            return
+
+        event_id = int(query.data.split("_")[2])
+        event = db.get_event_by_id(event_id)
+
+        if not event:
+            await query.edit_message_text("❌ Мероприятие не найдено или неактивно.")
+            return
+
+        # Store the selected event for editing
+        user_id = query.from_user.id
+        if user_id not in self.bot.user_data:
+            self.bot.user_data[user_id] = {}
+
+        # Store original event data and mark as editing
+        self.bot.user_data[user_id]["editing_event_id"] = event_id
+        self.bot.user_data[user_id]["editing_event"] = True
+        self.bot.user_data[user_id]["original_event"] = {
+            "title": event[0],
+            "description": event[1],
+            "event_date": event[2],
+            "attendee_limit": event[3],
+            "image_file_id": event[4] if len(event) > 4 else None,
+        }
+
+        # Format current status with original data
+        user_data = self.bot.user_data.get(user_id, {})
+        status_text = format_event_edit_status(
+            user_data, self.bot.user_data[user_id]["original_event"]
+        )
+        reply_markup = create_event_edit_keyboard(user_data)
+
+        await query.edit_message_text(
+            status_text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
+        )
+        await query.answer("✅ Мероприятие выбрано для редактирования!")
+
+    async def handle_event_edit_step(self, query):
+        """Handle individual steps of event editing"""
+        user_id = query.from_user.id
+
+        # Check if user is admin
+        if not config.is_admin(user_id):
+            await query.edit_message_text("❌ Доступ запрещен.")
+            return
+
+        # Initialize user_data if it doesn't exist
+        if user_id not in self.bot.user_data:
+            self.bot.user_data[user_id] = {}
+
+        logger.info(f"Event edit step: {query.data} for user {user_id}")
+
+        if query.data == "edit_title":
+            logger.info(f"Setting up title edit for user {user_id}")
+            self.bot.user_data[user_id]["waiting_for"] = "edit_title"
+            await query.edit_message_text(
+                "📝 Изменить название мероприятия:\n\n"
+                "Отправьте сообщение с новым названием.\n\n"
+                "Пример: Командная встреча\n\n"
+                "💡 Просто введите название и отправьте как обычное сообщение."
+            )
+
+        elif query.data == "edit_date":
+            self.bot.user_data[user_id]["waiting_for"] = "edit_date"
+            await query.edit_message_text(
+                "📅 Изменить дату мероприятия:\n\n"
+                "Отправьте сообщение с новой датой в формате ГГГГ-ММ-ДД.\n\n"
+                "Пример: 2024-12-25\n\n"
+                "💡 Просто введите дату и отправьте как обычное сообщение."
+            )
+
+        elif query.data == "edit_description":
+            self.bot.user_data[user_id]["waiting_for"] = "edit_description"
+            await query.edit_message_text(
+                "📄 Изменить описание мероприятия:\n\n"
+                "Отправьте сообщение с новым описанием.\n\n"
+                "Пример: Ежемесячная синхронизация команды\n\n"
+                "💡 Просто введите описание и отправьте как обычное сообщение."
+            )
+
+        elif query.data == "edit_limit":
+            self.bot.user_data[user_id]["waiting_for"] = "edit_attendee_limit"
+            from utils.keyboard_utils import create_back_to_admin_keyboard
+
+            await query.edit_message_text(
+                "👥 Изменить лимит участников:\n\n"
+                "Отправьте сообщение с новым числом участников (например: 50).\n\n"
+                "Пример: 25\n\n"
+                "💡 Введите число участников или отправьте 0 для снятия лимита.\n"
+                "Если не хотите менять лимит, нажмите '🔙 Назад в меню администратора'.",
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
+        elif query.data == "edit_image":
+            self.bot.user_data[user_id]["waiting_for"] = "edit_event_image"
+            from utils.keyboard_utils import create_back_to_admin_keyboard
+
+            await query.edit_message_text(
+                "🖼️ Изменить изображение:\n\n"
+                "Отправьте сообщение с новым изображением, которое будет прикреплено к мероприятию.\n\n"
+                "💡 Изображение будет отображаться в карточке мероприятия.\n"
+                "Если не хотите менять изображение, нажмите '🔙 Назад в меню администратора'.\n\n"
+                "После прикрепления изображения вернитесь в меню редактирования мероприятия.",
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
+        elif query.data == "edit_remove_image":
+            # Remove the attached image
+            if (
+                user_id in self.bot.user_data
+                and "event_image_file_id" in self.bot.user_data[user_id]
+            ):
+                del self.bot.user_data[user_id]["event_image_file_id"]
+
+            # Show updated status with new keyboard
+            user_data = self.bot.user_data.get(user_id, {})
+            original_event = self.bot.user_data.get(user_id, {}).get(
+                "original_event", {}
+            )
+            status_text = format_event_edit_status(user_data, original_event)
+            reply_markup = create_event_edit_keyboard(user_data)
+
+            await query.edit_message_text(
+                status_text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
+            )
+            await query.answer("✅ Изображение удалено!")
+
+        elif query.data == "edit_final":
+            await self.save_event_edits(query)
+        elif query.data == "edit_clear":
+            await self.clear_event_edit_data(query)
+        else:
+            logger.warning(f"Неизвестный шаг редактирования мероприятия: {query.data}")
+            await query.edit_message_text("❌ Неизвестное действие. Попробуйте снова.")
+
+    async def save_event_edits(self, query):
+        """Save event edits to database"""
+        user_id = query.from_user.id
+
+        # Get stored event data
+        user_data = self.bot.user_data.get(user_id, {})
+        event_id = user_data.get("editing_event_id")
+
+        if not event_id:
+            await query.edit_message_text(
+                "❌ Ошибка: мероприятие для редактирования не найдено."
+            )
+            return
+
+        # Get the changes (only non-None values)
+        title = user_data.get("event_title")
+        event_date = user_data.get("event_date")
+        description = user_data.get("event_description")
+        attendee_limit = user_data.get("attendee_limit")
+        image_file_id = user_data.get("event_image_file_id")
+
+        # Update event in database
+        success = db.update_event(
+            event_id=event_id,
+            title=title,
+            description=description,
+            event_date=event_date,
+            attendee_limit=attendee_limit,
+            image_file_id=image_file_id,
+        )
+
+        if success:
+            # Clear the edit data
+            if user_id in self.bot.user_data:
+                self.bot.user_data[user_id].clear()
+
+            await query.edit_message_text(
+                "✅ Изменения успешно сохранены!\n\n"
+                f"Мероприятие ID: {event_id} обновлено."
+            )
+        else:
+            await query.edit_message_text("❌ Ошибка сохранения изменений.")
+
+    async def clear_event_edit_data(self, query):
+        """Clear event edit data for user"""
+        user_id = query.from_user.id
+
+        if user_id in self.bot.user_data:
+            # Remove only edit-related data, keep original event data for display
+            edit_keys = [
+                key
+                for key in self.bot.user_data[user_id].keys()
+                if key.startswith(("event_", "waiting_for", "editing_"))
+                and key != "original_event"
+            ]
+            for key in edit_keys:
+                del self.bot.user_data[user_id][key]
+
+        # Show updated status with cleared data
+        user_data = self.bot.user_data.get(user_id, {})
+        original_event = self.bot.user_data.get(user_id, {}).get("original_event", {})
+        status_text = format_event_edit_status(user_data, original_event)
+        reply_markup = create_event_edit_keyboard(user_data)
+
+        await query.edit_message_text(
+            status_text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
         )

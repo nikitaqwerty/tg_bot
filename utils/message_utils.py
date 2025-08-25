@@ -72,6 +72,42 @@ def format_event_creation_status(user_data: dict) -> str:
     return status_text
 
 
+def format_event_edit_status(user_data: dict, original_event: dict) -> str:
+    """Format event edit status message"""
+    title = user_data.get("event_title", original_event.get("title", "Не установлено"))
+    event_date = user_data.get(
+        "event_date", original_event.get("event_date", "Не установлено")
+    )
+    description = user_data.get(
+        "event_description", original_event.get("description", "Не установлено")
+    )
+    attendee_limit = user_data.get(
+        "attendee_limit", original_event.get("attendee_limit")
+    )
+    image_file_id = user_data.get(
+        "event_image_file_id", original_event.get("image_file_id")
+    )
+
+    status_text = f"✏️ *Редактирование мероприятия*\n\n"
+    status_text += f"📝 Название: {escape_markdown(title)}\n"
+    status_text += f"📅 Дата: {event_date}\n"
+    status_text += f"📄 Описание: {escape_markdown(description)}\n"
+
+    if attendee_limit is not None:
+        status_text += f"👥 Лимит участников: {attendee_limit}\n"
+    else:
+        status_text += f"👥 Лимит участников: Не установлен\n"
+
+    if image_file_id:
+        status_text += f"🖼️ Изображение: Прикреплено\n"
+    else:
+        status_text += f"🖼️ Изображение: Не прикреплено\n"
+
+    status_text += "\nНажмите кнопки ниже для изменения каждого поля:"
+
+    return status_text
+
+
 def format_admin_events_list(events: List[Tuple]) -> str:
     """Format admin events list message"""
     if not events:

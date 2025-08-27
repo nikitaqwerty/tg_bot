@@ -10,35 +10,11 @@ def format_event_card_message(
     event_date: str,
     attendee_limit: int = None,
 ) -> str:
-    """Format event card message with RSVP statistics"""
-    stats = db.get_rsvp_stats(event_id)
-    recent_responses = db.get_recent_rsvp_responses(event_id)
-
+    """Format event card message"""
     message = f"🎉 *{escape_markdown(title)}*\n\n"
     if description:
         message += f"📝 {escape_markdown(description)}\n\n"
     message += f"📅 Дата: {event_date}\n\n"
-
-    # Add attendee limit and current count
-    total_registered = stats["иду"] + stats["не иду"]
-    if attendee_limit:
-        message += f"👥 *Участники: {total_registered}/{attendee_limit}*\n\n"
-    else:
-        message += f"👥 *Зарегистрировано: {total_registered}*\n\n"
-
-    # Add RSVP statistics
-    message += f"📊 *RSVP Статистика:*\n"
-    message += f"✅ иду: {stats['иду']}\n"
-    message += f"❌ не иду: {stats['не иду']}\n\n"
-
-    # Add recent responses
-    if recent_responses:
-        message += "👥 *Последние ответы:*\n"
-        for first_name, username, resp in recent_responses:
-            name = escape_markdown(first_name or "Unknown")
-            emoji = "✅" if resp == "иду" else "❌"
-            message += f"{emoji} {name}: {resp}\n"
-        message += "\n"
 
     message += "Отметьтесь, пожалуйста:"
     return message

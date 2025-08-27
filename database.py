@@ -168,7 +168,7 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id, title, event_date, description, attendee_limit, image_file_id FROM events WHERE is_active = 1"
+                "SELECT id, title, event_date, description FROM events WHERE is_active = 1"
             )
             return cursor.fetchall()
 

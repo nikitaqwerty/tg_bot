@@ -147,13 +147,9 @@ class CallbackHandlers:
             event_id, user.id, user.username, user.first_name, response
         )
 
-        # Get updated RSVP statistics and responses
-        stats = db.get_rsvp_stats(event_id)
-        recent_responses = db.get_recent_rsvp_responses(event_id)
-
         # Update the message with current status
 
-        # Format event card message with updated stats
+        # Format event card message
         from utils.message_utils import format_event_card_message
 
         message = format_event_card_message(

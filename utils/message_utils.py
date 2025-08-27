@@ -11,7 +11,7 @@ def format_event_card_message(
     attendee_limit: int = None,
 ) -> str:
     """Format event card message"""
-    message = f"🎉 *{escape_markdown(title)}*\n\n"
+    message = f"*{escape_markdown(title)}*\n\n"
     if description:
         message += f"📝 {escape_markdown(description)}\n\n"
     message += f"📅 Дата: {event_date}\n\n"
@@ -113,26 +113,33 @@ def format_admin_events_list(events: List[Tuple]) -> str:
 
 
 def escape_markdown(text: str) -> str:
-    """Escape special Markdown characters to prevent parsing errors"""
+    r"""Escape special Markdown V2 characters to prevent parsing errors
+
+    According to Telegram's Markdown V2 specification, only these characters
+    need to be escaped in regular text:
+    - * (asterisk) - for bold/italic
+    - _ (underscore) - for italic
+    - ~ (tilde) - for strikethrough
+    - ` (backtick) - for code
+    - | (pipe) - for tables
+    - { and } - for placeholders
+    - [ and ] - for links
+    - < and > - for HTML tags
+    - \ (backslash) - to escape other characters
+    """
     special_chars = [
         "*",
         "_",
-        "[",
-        "]",
-        "(",
-        ")",
         "~",
         "`",
-        ">",
-        "#",
-        "+",
-        "-",
-        "=",
         "|",
         "{",
         "}",
-        ".",
-        "!",
+        "[",
+        "]",
+        "<",
+        ">",
+        "\\",
     ]
     escaped_text = text
     for char in special_chars:
@@ -259,7 +266,7 @@ def format_simple_event_message(
     title: str, description: str, event_date: str, attendee_limit: int = None
 ) -> str:
     """Format simple event message without RSVP stats"""
-    message = f"🎉 *{escape_markdown(title)}*\n\n"
+    message = f"*{escape_markdown(title)}*\n\n"
     if description:
         message += f"📝 {escape_markdown(description)}\n\n"
     message += f"📅 Дата: {event_date}\n"

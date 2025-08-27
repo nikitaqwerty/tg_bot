@@ -10,6 +10,7 @@ import logging
 
 from bot import EventBot
 from config import config
+from keep_alive import keep_alive
 
 # Configure logging
 logging.basicConfig(
@@ -21,6 +22,10 @@ logger = logging.getLogger(__name__)
 def main():
     """Main entry point for the Telegram Event Bot"""
     try:
+        # Start keep alive server for Replit
+        keep_alive()
+        logger.info("Keep alive server started on port 8080")
+
         # Create and run bot
         bot = EventBot(config.BOT_TOKEN)
         bot.run()

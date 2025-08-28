@@ -115,6 +115,9 @@ def format_admin_events_list(events: List[Tuple]) -> str:
 def escape_markdown(text: str) -> str:
     r"""Escape special Markdown V2 characters to prevent parsing errors
 
+    This function handles links properly by not escaping characters that are
+    part of valid Markdown links [text](url) format.
+
     According to Telegram's Markdown V2 specification, only these characters
     need to be escaped in regular text:
     - * (asterisk) - for bold/italic
@@ -123,10 +126,28 @@ def escape_markdown(text: str) -> str:
     - ` (backtick) - for code
     - | (pipe) - for tables
     - { and } - for placeholders
-    - [ and ] - for links
+    - [ and ] - for links (but only when not part of actual links)
     - < and > - for HTML tags
     - \ (backslash) - to escape other characters
     """
+    import re
+
+    # First, let's find and preserve complete Markdown links [text](url)
+    link_pattern = r"\[([^\]]+)\]\(([^)]+)\)"
+    links = re.findall(link_pattern, text)
+
+    # Replace links with placeholders to avoid escaping
+    placeholder_map = {}
+    placeholder_text = text
+
+    for i, (link_text, url) in enumerate(links):
+        placeholder = f"LINKPLACEHOLDER{i}END"
+        placeholder_map[placeholder] = f"[{link_text}]({url})"
+        placeholder_text = placeholder_text.replace(
+            f"[{link_text}]({url})", placeholder
+        )
+
+    # Now escape the remaining special characters
     special_chars = [
         "*",
         "_",
@@ -135,15 +156,22 @@ def escape_markdown(text: str) -> str:
         "|",
         "{",
         "}",
-        "[",
+        "[",  # Only escape standalone brackets, not link brackets
         "]",
         "<",
         ">",
         "\\",
     ]
-    escaped_text = text
+
+    escaped_text = placeholder_text
     for char in special_chars:
+        # Use a more careful replacement that doesn't break existing escapes
         escaped_text = escaped_text.replace(char, f"\\{char}")
+
+    # Restore the original links
+    for placeholder, original_link in placeholder_map.items():
+        escaped_text = escaped_text.replace(placeholder, original_link)
+
     return escaped_text
 
 

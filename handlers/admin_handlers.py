@@ -258,7 +258,7 @@ class AdminHandlers:
             await update.message.reply_text("❌ Неверный ID мероприятия.")
 
     async def post_event_card(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Post event card with RSVP buttons in chat group - Admin only"""
+        """Post event card with RSVP buttons in the configured channel - Admin only"""
         if not self.is_admin(update.effective_user.id):
             await update.message.reply_text("❌ Доступ запрещен.")
             return
@@ -266,6 +266,13 @@ class AdminHandlers:
         if not context.args:
             await update.message.reply_text(
                 "Использование: /post_event_card <event_id>"
+            )
+            return
+
+        # Check if channel is configured
+        if not config.CHANNEL_ID:
+            await update.message.reply_text(
+                "❌ Канал не настроен. Установите переменную окружения CHANNEL_ID."
             )
             return
 
@@ -280,6 +287,7 @@ class AdminHandlers:
                 return
 
             title, description, event_date = event[:3]
+            attendee_limit = event[3] if len(event) > 3 else None
             image_file_id = event[4] if len(event) > 4 else None
 
             # Create RSVP keyboard and message
@@ -288,38 +296,148 @@ class AdminHandlers:
 
             reply_markup = create_rsvp_keyboard(event_id)
             message = format_event_card_message(
-                event_id, title, description, event_date
+                event_id, title, description, event_date, attendee_limit
             )
 
-            # Send message with or without image
-            if image_file_id:
-                await update.message.reply_photo(
-                    photo=image_file_id,
-                    caption=message,
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=reply_markup,
-                )
+            try:
+                # Post to the configured channel
+                if image_file_id:
+                    await context.bot.send_photo(
+                        chat_id=config.CHANNEL_ID,
+                        photo=image_file_id,
+                        caption=message,
+                        parse_mode=ParseMode.MARKDOWN,
+                        reply_markup=reply_markup,
+                    )
+                else:
+                    await context.bot.send_message(
+                        chat_id=config.CHANNEL_ID,
+                        text=message,
+                        parse_mode=ParseMode.MARKDOWN,
+                        reply_markup=reply_markup,
+                    )
 
-                # Send a confirmation message with back button
+                # Send confirmation message to admin
                 await update.message.reply_text(
-                    "✅ Карточка мероприятия опубликована!",
+                    f"✅ Карточка мероприятия '{title}' успешно опубликована в канале!",
                     reply_markup=create_back_to_admin_keyboard(),
                 )
-            else:
-                await update.message.reply_text(
-                    text=message,
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=reply_markup,
-                )
 
-                # Send a confirmation message with back button
+            except Exception as e:
+                logger.error(
+                    f"Failed to post event card to channel {config.CHANNEL_ID}: {e}"
+                )
+                error_message = "❌ Ошибка при отправке в канал. "
+
+                if "chat not found" in str(e).lower():
+                    error_message += (
+                        f"Канал не найден (ID: {config.CHANNEL_ID}).\n\n"
+                        "🔧 Решения:\n"
+                        "• Используйте `/test_channel` для диагностики\n"
+                        "• Добавьте @userinfobot в канал для получения правильного ID\n"
+                        "• Проверьте, что бот добавлен в канал"
+                    )
+                elif (
+                    "not enough rights" in str(e).lower()
+                    or "forbidden" in str(e).lower()
+                ):
+                    error_message += (
+                        "Недостаточно прав для отправки сообщений в канал.\n\n"
+                        "🔧 Решение:\n"
+                        "• Добавьте бота в канал как администратора\n"
+                        "• Дайте права: 'Отправка сообщений' и 'Отправка медиа'\n"
+                        "• Используйте `/test_channel` для проверки"
+                    )
+                else:
+                    error_message += f"Детали: {str(e)}\n\nИспользуйте `/test_channel` для диагностики."
+
                 await update.message.reply_text(
-                    "✅ Карточка мероприятия опубликована!",
+                    error_message,
                     reply_markup=create_back_to_admin_keyboard(),
                 )
 
         except ValueError:
             await update.message.reply_text("❌ Неверный ID мероприятия.")
+
+    async def test_channel(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Test channel connection and provide setup instructions - Admin only"""
+        if not self.is_admin(update.effective_user.id):
+            await update.message.reply_text("❌ Доступ запрещен.")
+            return
+
+        if not config.CHANNEL_ID:
+            await update.message.reply_text(
+                "❌ CHANNEL_ID не настроен.\n\n"
+                "📝 **Инструкция по настройке канала:**\n\n"
+                "1. Создайте канал в Telegram\n"
+                "2. Добавьте бота в канал как администратора\n"
+                "3. Отправьте любое сообщение в канал\n"
+                "4. Перешлите это сообщение боту @userinfobot\n"
+                "5. Скопируйте Chat ID из ответа\n"
+                "6. Добавьте в .env: `CHANNEL_ID=-1001234567890`\n"
+                "7. Перезапустите бота",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+            return
+
+        try:
+            # Test sending a message to the channel
+            test_message = await context.bot.send_message(
+                chat_id=config.CHANNEL_ID,
+                text="🔧 Тест подключения к каналу успешен! Этот бот может отправлять сообщения в канал.",
+            )
+
+            await update.message.reply_text(
+                f"✅ **Канал настроен правильно!**\n\n"
+                f"📍 Channel ID: `{config.CHANNEL_ID}`\n"
+                f"✉️ Тестовое сообщение отправлено (ID: {test_message.message_id})\n\n"
+                f"Теперь вы можете использовать `/post_event_card <event_id>` для публикации мероприятий.",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
+        except Exception as e:
+            error_details = str(e).lower()
+
+            if "chat not found" in error_details:
+                error_message = (
+                    "❌ **Канал не найден**\n\n"
+                    f"Current CHANNEL_ID: `{config.CHANNEL_ID}`\n\n"
+                    "🔧 **Возможные решения:**\n"
+                    "1. Проверьте правильность CHANNEL_ID\n"
+                    "2. Убедитесь, что канал существует\n"
+                    "3. Проверьте, что бот добавлен в канал\n\n"
+                    "📝 **Как получить правильный Channel ID:**\n"
+                    "1. Добавьте бота @userinfobot в канал\n"
+                    "2. Отправьте любое сообщение в канал\n"
+                    "3. @userinfobot покажет правильный Chat ID\n"
+                    "4. Используйте этот ID в .env файле"
+                )
+            elif "forbidden" in error_details or "not enough rights" in error_details:
+                error_message = (
+                    "❌ **Недостаточно прав**\n\n"
+                    f"Current CHANNEL_ID: `{config.CHANNEL_ID}`\n\n"
+                    "🔧 **Решение:**\n"
+                    "1. Зайдите в настройки канала\n"
+                    "2. Управление каналом → Администраторы\n"
+                    "3. Добавьте бота как администратора\n"
+                    "4. Дайте права: 'Отправка сообщений' и 'Отправка медиа'\n"
+                    "5. Сохраните изменения"
+                )
+            else:
+                error_message = (
+                    f"❌ **Ошибка подключения к каналу**\n\n"
+                    f"Current CHANNEL_ID: `{config.CHANNEL_ID}`\n"
+                    f"Error: `{str(e)}`\n\n"
+                    "Обратитесь к администратору для решения проблемы."
+                )
+
+            await update.message.reply_text(
+                error_message,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=create_back_to_admin_keyboard(),
+            )
 
     async def show_rsvp_stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show RSVP statistics for a specific event - Admin only"""
@@ -432,6 +550,8 @@ class AdminHandlers:
             await self.show_check_users_menu(query)
         elif query.data == "admin_notify":
             await self.show_notify_menu(query)
+        elif query.data == "admin_test_channel":
+            await self.show_test_channel_result(query)
         elif query.data == "admin_back":
             await self.handle_admin_back_with_auto_save(query)
 
@@ -575,6 +695,86 @@ class AdminHandlers:
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=reply_markup,
         )
+
+    async def show_test_channel_result(self, query):
+        """Show channel test result through callback"""
+        if not self.is_admin(query.from_user.id):
+            await query.edit_message_text("❌ Доступ запрещен.")
+            return
+
+        if not config.CHANNEL_ID:
+            await query.edit_message_text(
+                "❌ CHANNEL_ID не настроен.\n\n"
+                "📝 **Инструкция по настройке канала:**\n\n"
+                "1. Создайте канал в Telegram\n"
+                "2. Добавьте бота в канал как администратора\n"
+                "3. Отправьте любое сообщение в канал\n"
+                "4. Перешлите это сообщение боту @userinfobot\n"
+                "5. Скопируйте Chat ID из ответа\n"
+                "6. Добавьте в .env: `CHANNEL_ID=-1001234567890`\n"
+                "7. Перезапустите бота",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+            return
+
+        try:
+            # Test sending a message to the channel
+            test_message = await self.bot.application.bot.send_message(
+                chat_id=config.CHANNEL_ID,
+                text="🔧 Тест подключения к каналу успешен! Этот бот может отправлять сообщения в канал.",
+            )
+
+            await query.edit_message_text(
+                f"✅ **Канал настроен правильно!**\n\n"
+                f"📍 Channel ID: `{config.CHANNEL_ID}`\n"
+                f"✉️ Тестовое сообщение отправлено (ID: {test_message.message_id})\n\n"
+                f"Теперь вы можете использовать `/post_event_card <event_id>` для публикации мероприятий.",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
+        except Exception as e:
+            error_details = str(e).lower()
+
+            if "chat not found" in error_details:
+                error_message = (
+                    "❌ **Канал не найден**\n\n"
+                    f"Current CHANNEL_ID: `{config.CHANNEL_ID}`\n\n"
+                    "🔧 **Возможные решения:**\n"
+                    "1. Проверьте правильность CHANNEL_ID\n"
+                    "2. Убедитесь, что канал существует\n"
+                    "3. Проверьте, что бот добавлен в канал\n\n"
+                    "📝 **Как получить правильный Channel ID:**\n"
+                    "1. Добавьте бота @userinfobot в канал\n"
+                    "2. Отправьте любое сообщение в канал\n"
+                    "3. @userinfobot покажет правильный Chat ID\n"
+                    "4. Используйте этот ID в .env файле"
+                )
+            elif "forbidden" in error_details or "not enough rights" in error_details:
+                error_message = (
+                    "❌ **Недостаточно прав**\n\n"
+                    f"Current CHANNEL_ID: `{config.CHANNEL_ID}`\n\n"
+                    "🔧 **Решение:**\n"
+                    "1. Зайдите в настройки канала\n"
+                    "2. Управление каналом → Администраторы\n"
+                    "3. Добавьте бота как администратора\n"
+                    "4. Дайте права: 'Отправка сообщений' и 'Отправка медиа'\n"
+                    "5. Сохраните изменения"
+                )
+            else:
+                error_message = (
+                    f"❌ **Ошибка подключения к каналу**\n\n"
+                    f"Current CHANNEL_ID: `{config.CHANNEL_ID}`\n"
+                    f"Error: `{str(e)}`\n\n"
+                    "Обратитесь к администратору для решения проблемы."
+                )
+
+            await query.edit_message_text(
+                error_message,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=create_back_to_admin_keyboard(),
+            )
 
     async def handle_admin_back_with_auto_save(self, query):
         """Handle admin back with auto-save functionality"""

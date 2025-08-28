@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional, Union
 
 from dotenv import load_dotenv
 
@@ -14,7 +14,7 @@ class Config:
         # Bot configuration
         self.BOT_TOKEN = os.getenv("BOT_TOKEN")
         self.ADMIN_IDS = self._parse_admin_ids(os.getenv("ADMIN_IDS", ""))
-        self.CHANNEL_ID = os.getenv("CHANNEL_ID")
+        self.CHANNEL_ID = self._parse_channel_id(os.getenv("CHANNEL_ID"))
 
         # Database configuration
         self.DATABASE_PATH = "events.db"
@@ -27,6 +27,34 @@ class Config:
         if not admin_ids_str:
             return []
         return [int(x.strip()) for x in admin_ids_str.split(",") if x.strip()]
+
+    def _parse_channel_id(
+        self, channel_id_str: Optional[str]
+    ) -> Optional[Union[int, str]]:
+        """Normalize CHANNEL_ID from .env
+
+        - Strips whitespace and surrounding quotes
+        - Returns '@channelusername' as-is (str)
+        - Converts numeric ids like '-1001234567890' to int
+        """
+        if not channel_id_str:
+            return None
+
+        value = channel_id_str.strip()
+
+        # Strip surrounding quotes if present
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1].strip()
+
+        if value.startswith("@"):
+            return value
+
+        # Try to interpret as an integer chat id
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            # Fall back to raw string (better than failing validation here)
+            return value
 
     def _validate_config(self):
         """Validate required configuration values"""

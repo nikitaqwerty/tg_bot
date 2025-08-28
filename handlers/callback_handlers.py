@@ -247,7 +247,14 @@ class CallbackHandlers:
         )
 
     async def _post_event_card(self, query, event_id: int):
-        """Post the event card to the chat"""
+        """Post the event card to the configured channel"""
+        # Check if channel is configured
+        if not config.CHANNEL_ID:
+            await query.answer(
+                "❌ Канал не настроен. Установите переменную окружения CHANNEL_ID."
+            )
+            return
+
         event = db.get_event_by_id(event_id)
 
         if not event:
@@ -267,20 +274,46 @@ class CallbackHandlers:
             event_id, title, description, event_date, attendee_limit
         )
 
-        # Post the event card in the chat with or without image
-        if image_file_id:
-            await query.message.reply_photo(
-                photo=image_file_id,
-                caption=message,
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=reply_markup,
-            )
-        else:
-            await query.message.reply_text(
-                text=message, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
+        try:
+            # Post to the configured channel
+            if image_file_id:
+                await self.bot.application.bot.send_photo(
+                    chat_id=config.CHANNEL_ID,
+                    photo=image_file_id,
+                    caption=message,
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=reply_markup,
+                )
+            else:
+                await self.bot.application.bot.send_message(
+                    chat_id=config.CHANNEL_ID,
+                    text=message,
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=reply_markup,
+                )
+
+            await query.answer(
+                f"✅ Карточка мероприятия '{title}' опубликована в канале!"
             )
 
-        await query.answer("✅ Карточка мероприятия опубликована!")
+        except Exception as e:
+            logger.error(
+                f"Failed to post event card to channel {config.CHANNEL_ID}: {e}"
+            )
+            error_message = "❌ Ошибка при отправке в канал. "
+
+            if "chat not found" in str(e).lower():
+                error_message += f"Канал не найден (ID: {config.CHANNEL_ID}). Используйте /test_channel для диагностики."
+            elif "not enough rights" in str(e).lower() or "forbidden" in str(e).lower():
+                error_message += (
+                    "Недостаточно прав. Добавьте бота как администратора канала."
+                )
+            else:
+                error_message += (
+                    f"Детали: {str(e)}. Используйте /test_channel для диагностики."
+                )
+
+            await query.answer(error_message)
 
     async def handle_save_and_post(self, query):
         """Handle saving changes and then posting the event card"""

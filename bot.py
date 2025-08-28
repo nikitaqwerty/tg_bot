@@ -60,6 +60,9 @@ class EventBot:
         self.application.add_handler(
             CommandHandler("check_users", self.admin_handlers.check_user_status)
         )
+        self.application.add_handler(
+            CommandHandler("test_channel", self.admin_handlers.test_channel)
+        )
 
         # Public commands
         self.application.add_handler(CommandHandler("start", self.user_handlers.start))

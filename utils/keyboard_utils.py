@@ -74,6 +74,7 @@ def create_admin_menu_keyboard() -> InlineKeyboardMarkup:
                 "🔍 Проверить статус пользователей", callback_data="admin_check_users"
             )
         ],
+        [InlineKeyboardButton("🔧 Тест канала", callback_data="admin_test_channel")],
     ]
     return InlineKeyboardMarkup(keyboard)
 

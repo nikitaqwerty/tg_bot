@@ -64,6 +64,14 @@ class MessageHandlers:
                 f"Processing notification input from user {user_id}: {update.message.text}"
             )
             await self.handle_notification_input(update, user_id)
+        # Check if user is in channel ID change mode
+        elif user_id in self.bot.user_data and self.bot.user_data[user_id].get(
+            "waiting_for_channel_id"
+        ):
+            logger.info(
+                f"Processing channel ID input from user {user_id}: {update.message.text}"
+            )
+            await self.handle_channel_id_input(update, user_id)
         else:
             logger.info(
                 f"User {user_id} not in event creation mode. User data: {self.bot.user_data.get(user_id, 'Not found')}"
@@ -333,6 +341,59 @@ class MessageHandlers:
             )
             await update.message.reply_text(
                 "❌ Неожиданный ввод. Вернитесь в меню администратора для продолжения.",
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
+    async def handle_channel_id_input(self, update: Update, user_id: int):
+        """Handle user input for channel ID change"""
+        user_input = update.message.text.strip()
+
+        logger.info(f"Handling channel ID input for user {user_id}: {user_input}")
+
+        # Validate the channel ID format
+        if not user_input:
+            await update.message.reply_text(
+                "❌ Channel ID не может быть пустым. Попробуйте снова."
+            )
+            return
+
+        # Basic validation - should start with @ or be a numeric ID
+        if not (user_input.startswith("@") or user_input.replace("-", "").isdigit()):
+            await update.message.reply_text(
+                "❌ Неверный формат Channel ID.\n\n"
+                "Используйте:\n"
+                "• `@channelusername` для публичных каналов\n"
+                "• `-1001234567890` для приватных каналов\n\n"
+                "Попробуйте снова или нажмите 'Назад в меню администратора'."
+            )
+            return
+
+        # Update the config
+        try:
+            # Update the global config object
+            config.CHANNEL_ID = config._parse_channel_id(user_input)
+
+            # Clear the waiting state
+            self.bot.user_data[user_id]["waiting_for_channel_id"] = False
+
+            # Send confirmation
+            await update.message.reply_text(
+                f"✅ **Channel ID успешно изменен!**\n\n"
+                f"📍 Новый Channel ID: `{config.CHANNEL_ID}`\n\n"
+                f"⚠️ **Важно:** Изменения применятся сразу, но для сохранения "
+                f"настройки между перезапусками бота добавьте в файл .env:\n"
+                f"`CHANNEL_ID={user_input}`",
+                parse_mode="Markdown",
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
+            logger.info(f"Channel ID updated by user {user_id} to: {config.CHANNEL_ID}")
+
+        except Exception as e:
+            logger.error(f"Failed to update channel ID for user {user_id}: {e}")
+            await update.message.reply_text(
+                f"❌ Ошибка при обновлении Channel ID: {str(e)}\n\n"
+                "Попробуйте снова или обратитесь к администратору.",
                 reply_markup=create_back_to_admin_keyboard(),
             )
 

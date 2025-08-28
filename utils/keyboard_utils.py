@@ -75,6 +75,11 @@ def create_admin_menu_keyboard() -> InlineKeyboardMarkup:
             )
         ],
         [InlineKeyboardButton("🔧 Тест канала", callback_data="admin_test_channel")],
+        [
+            InlineKeyboardButton(
+                "📍 Изменить Channel ID", callback_data="admin_change_channel"
+            )
+        ],
     ]
     return InlineKeyboardMarkup(keyboard)
 

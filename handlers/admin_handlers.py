@@ -552,6 +552,8 @@ class AdminHandlers:
             await self.show_notify_menu(query)
         elif query.data == "admin_test_channel":
             await self.show_test_channel_result(query)
+        elif query.data == "admin_change_channel":
+            await self.show_change_channel_menu(query)
         elif query.data == "admin_back":
             await self.handle_admin_back_with_auto_save(query)
 
@@ -780,6 +782,10 @@ class AdminHandlers:
         """Handle admin back with auto-save functionality"""
         user_id = query.from_user.id
 
+        # Clear any waiting states
+        if user_id in self.bot.user_data:
+            self.bot.user_data[user_id]["waiting_for_channel_id"] = False
+
         # Check if user has unsaved changes and auto-save them
         if user_id in self.bot.user_data and self.bot.user_data[user_id].get(
             "editing_event"
@@ -878,3 +884,26 @@ class AdminHandlers:
         await query.edit_message_text(
             "🔧 Панель администратора\nВыберите действие:", reply_markup=reply_markup
         )
+
+    async def show_change_channel_menu(self, query):
+        """Show menu for changing channel ID"""
+        current_channel = config.CHANNEL_ID or "Не задан"
+        await query.edit_message_text(
+            f"📍 *Изменение Channel ID*\n\n"
+            f"Текущий Channel ID: `{current_channel}`\n\n"
+            f"Отправьте новый Channel ID в формате:\n"
+            f"• `@channelusername` (для публичных каналов)\n"
+            f"• `-1001234567890` (для приватных каналов)\n\n"
+            f"💡 Для получения Channel ID:\n"
+            f"1. Добавьте бота @userinfobot в канал\n"
+            f"2. Отправьте любое сообщение в канал\n"
+            f"3. @userinfobot покажет правильный Chat ID",
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=create_back_to_admin_keyboard(),
+        )
+
+        # Set user state to expect channel ID input
+        user_id = query.from_user.id
+        if user_id not in self.bot.user_data:
+            self.bot.user_data[user_id] = {}
+        self.bot.user_data[user_id]["waiting_for_channel_id"] = True

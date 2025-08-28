@@ -80,7 +80,7 @@ class CallbackHandlers:
             await query.edit_message_text("❌ Мероприятие не найдено.")
             return
 
-        title, description, event_date, attendee_limit, _ = event
+        title, description, event_date, attendee_limit, _, address = event
 
         # Check if event is at capacity
         if db.is_event_at_capacity(event_id):
@@ -131,7 +131,7 @@ class CallbackHandlers:
             await query.answer("❌ Мероприятие не найдено.")
             return
 
-        title, description, event_date, attendee_limit, _ = event
+        title, description, event_date, attendee_limit, _, address = event
 
         # Check if event is at capacity (only for positive responses)
         if response == "иду" and not db.is_user_registered(event_id, user.id):
@@ -153,7 +153,7 @@ class CallbackHandlers:
         from utils.message_utils import format_event_card_message
 
         message = format_event_card_message(
-            event_id, title, description, event_date, attendee_limit
+            event_id, title, description, event_date, attendee_limit, address
         )
 
         # Create updated keyboard with current stats and user's current response
@@ -261,7 +261,7 @@ class CallbackHandlers:
             await query.answer("❌ Мероприятие не найдено или неактивно.")
             return
 
-        title, description, event_date, attendee_limit, _ = event
+        title, description, event_date, attendee_limit, _, address = event
         image_file_id = event[4] if len(event) > 4 else None
 
         # Create RSVP keyboard (no user_id for initial posting)
@@ -271,7 +271,7 @@ class CallbackHandlers:
         from utils.message_utils import format_event_card_message
 
         message = format_event_card_message(
-            event_id, title, description, event_date, attendee_limit
+            event_id, title, description, event_date, attendee_limit, address
         )
 
         try:
@@ -617,6 +617,19 @@ class CallbackHandlers:
                 reply_markup=create_back_to_admin_keyboard(),
             )
 
+        elif query.data == "create_address":
+            self.bot.user_data[user_id]["creating_event"] = True
+            self.bot.user_data[user_id]["waiting_for"] = "event_address"
+            from utils.keyboard_utils import create_back_to_admin_keyboard
+
+            await query.edit_message_text(
+                "📍 Пожалуйста, введите адрес мероприятия:\n\n"
+                "Отправьте сообщение с адресом проведения мероприятия.\n\n"
+                "Пример: ул. Ленина, 15, офис 301\n\n"
+                "💡 Введите полный адрес или нажмите '🔙 Назад в меню администратора' для пропуска.",
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
         elif query.data == "create_image":
             self.bot.user_data[user_id]["creating_event"] = True
             self.bot.user_data[user_id]["waiting_for"] = "event_image"
@@ -669,6 +682,7 @@ class CallbackHandlers:
         description = user_data.get("event_description", "Описание не предоставлено")
         attendee_limit = user_data.get("attendee_limit")
         image_file_id = user_data.get("event_image_file_id")
+        address = user_data.get("event_address")
 
         # Validate that we have at least a title
         if not title or title == "Без названия":
@@ -680,7 +694,7 @@ class CallbackHandlers:
 
         try:
             event_id = db.create_event(
-                title, description, event_date, attendee_limit, image_file_id
+                title, description, event_date, attendee_limit, image_file_id, address
             )
 
             # Clear the creation data
@@ -692,6 +706,7 @@ class CallbackHandlers:
             success_message += f"📝 Название: {title}\n"
             success_message += f"📅 Дата: {event_date}\n"
             success_message += f"📄 Описание: {description}\n"
+            success_message += f"📍 Адрес: {address if address else 'Не указан'}\n"
 
             if attendee_limit is not None:
                 success_message += f"👥 Лимит участников: {attendee_limit}\n"
@@ -754,6 +769,7 @@ class CallbackHandlers:
             "event_date": event[2],
             "attendee_limit": event[3],
             "image_file_id": event[4] if len(event) > 4 else None,
+            "address": event[5] if len(event) > 5 else None,
         }
 
         # Format current status with original data
@@ -824,6 +840,18 @@ class CallbackHandlers:
                 reply_markup=create_back_to_admin_keyboard(),
             )
 
+        elif query.data == "edit_address":
+            self.bot.user_data[user_id]["waiting_for"] = "edit_event_address"
+            from utils.keyboard_utils import create_back_to_admin_keyboard
+
+            await query.edit_message_text(
+                "📍 Изменить адрес мероприятия:\n\n"
+                "Отправьте сообщение с новым адресом проведения мероприятия.\n\n"
+                "Пример: ул. Ленина, 15, офис 301\n\n"
+                "💡 Введите полный адрес или нажмите '🔙 Назад в меню администратора' для пропуска.",
+                reply_markup=create_back_to_admin_keyboard(),
+            )
+
         elif query.data == "edit_image":
             self.bot.user_data[user_id]["waiting_for"] = "edit_event_image"
             from utils.keyboard_utils import create_back_to_admin_keyboard
@@ -886,6 +914,7 @@ class CallbackHandlers:
         description = user_data.get("event_description")
         attendee_limit = user_data.get("attendee_limit")
         image_file_id = user_data.get("event_image_file_id")
+        address = user_data.get("event_address")
 
         # Update event in database
         success = db.update_event(
@@ -895,6 +924,7 @@ class CallbackHandlers:
             event_date=event_date,
             attendee_limit=attendee_limit,
             image_file_id=image_file_id,
+            address=address,
         )
 
         if success:

@@ -39,7 +39,8 @@ class DatabaseManager:
                     created_at TEXT NOT NULL,
                     is_active BOOLEAN DEFAULT 1,
                     attendee_limit INTEGER,
-                    image_file_id TEXT
+                    image_file_id TEXT,
+                    address TEXT
                 )
             """
             )
@@ -90,6 +91,12 @@ class DatabaseManager:
                 # Column already exists
                 pass
 
+            try:
+                cursor.execute("ALTER TABLE events ADD COLUMN address TEXT")
+            except sqlite3.OperationalError:
+                # Column already exists
+                pass
+
             conn.commit()
 
     def create_event(
@@ -99,12 +106,13 @@ class DatabaseManager:
         event_date: str,
         attendee_limit: int = None,
         image_file_id: str = None,
+        address: str = None,
     ) -> int:
         """Create a new event and return its ID"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO events (title, description, event_date, created_at, attendee_limit, image_file_id) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO events (title, description, event_date, created_at, attendee_limit, image_file_id, address) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
                     title,
                     description,
@@ -112,6 +120,7 @@ class DatabaseManager:
                     datetime.now().isoformat(),
                     attendee_limit,
                     image_file_id,
+                    address,
                 ),
             )
             event_id = cursor.lastrowid
@@ -126,6 +135,7 @@ class DatabaseManager:
         event_date: str = None,
         attendee_limit: int = None,
         image_file_id: str = None,
+        address: str = None,
     ) -> bool:
         """Update an existing event. Only non-None values will be updated"""
         with self.get_connection() as conn:
@@ -150,6 +160,9 @@ class DatabaseManager:
             if image_file_id is not None:
                 update_fields.append("image_file_id = ?")
                 values.append(image_file_id)
+            if address is not None:
+                update_fields.append("address = ?")
+                values.append(address)
 
             if not update_fields:
                 return False  # Nothing to update
@@ -195,7 +208,7 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT title, description, event_date, attendee_limit, image_file_id FROM events WHERE id = ?",
+                "SELECT title, description, event_date, attendee_limit, image_file_id, address FROM events WHERE id = ?",
                 (event_id,),
             )
             return cursor.fetchone()

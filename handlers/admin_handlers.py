@@ -85,7 +85,7 @@ class AdminHandlers:
 
             # Post event in the current chat with registration button
             await self._post_event_in_chat(
-                update, event_id, title, description, event_date, image_file_id
+                update, event_id, title, description, event_date, image_file_id, None
             )
 
             success_message = f"✅ Мероприятие '{title}' успешно создано!"
@@ -111,6 +111,7 @@ class AdminHandlers:
         description: str,
         event_date: str,
         image_file_id: str = None,
+        address: str = None,
     ):
         """Post event in the current chat with registration button"""
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -130,12 +131,13 @@ class AdminHandlers:
         event_image_file_id = image_file_id or (
             event[4] if event and len(event) > 4 else None
         )
+        event_address = address or (event[5] if event and len(event) > 5 else None)
 
         # Format message with attendee limit info
         from utils.message_utils import format_simple_event_message
 
         message = format_simple_event_message(
-            title, description, event_date, attendee_limit
+            title, description, event_date, attendee_limit, event_address
         )
 
         # Send message with or without image
@@ -289,6 +291,7 @@ class AdminHandlers:
             title, description, event_date = event[:3]
             attendee_limit = event[3] if len(event) > 3 else None
             image_file_id = event[4] if len(event) > 4 else None
+            address = event[5] if len(event) > 5 else None
 
             # Create RSVP keyboard and message
             from utils.keyboard_utils import create_rsvp_keyboard
@@ -296,7 +299,7 @@ class AdminHandlers:
 
             reply_markup = create_rsvp_keyboard(event_id)
             message = format_event_card_message(
-                event_id, title, description, event_date, attendee_limit
+                event_id, title, description, event_date, attendee_limit, address
             )
 
             try:
@@ -840,6 +843,7 @@ class AdminHandlers:
                 user_data.get("event_description"),
                 user_data.get("attendee_limit"),
                 user_data.get("event_image_file_id"),
+                user_data.get("event_address"),
             ]
 
             return any(change is not None for change in pending_changes)
@@ -865,6 +869,7 @@ class AdminHandlers:
         description = user_data.get("event_description")
         attendee_limit = user_data.get("attendee_limit")
         image_file_id = user_data.get("event_image_file_id")
+        address = user_data.get("event_address")
 
         # Update event in database
         success = db.update_event(
@@ -874,6 +879,7 @@ class AdminHandlers:
             event_date=event_date,
             attendee_limit=attendee_limit,
             image_file_id=image_file_id,
+            address=address,
         )
 
         return success

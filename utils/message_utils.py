@@ -9,14 +9,18 @@ def format_event_card_message(
     description: str,
     event_date: str,
     attendee_limit: int = None,
+    address: str = None,
 ) -> str:
     """Format event card message"""
     message = f"*{escape_markdown(title)}*\n\n"
     if description:
         message += f"📝 {escape_markdown(description)}\n\n"
-    message += f"📅 Дата: {event_date}\n\n"
+    message += f"📅 Дата: {event_date}\n"
 
-    message += "Отметьтесь, пожалуйста:"
+    if address:
+        message += f"📍 Адрес: {escape_markdown(address)}\n"
+
+    message += "\nОтметьтесь, пожалуйста:"
     return message
 
 
@@ -27,11 +31,13 @@ def format_event_creation_status(user_data: dict) -> str:
     description = user_data.get("event_description", "Не установлено")
     attendee_limit = user_data.get("attendee_limit")
     image_file_id = user_data.get("event_image_file_id")
+    address = user_data.get("event_address", "Не установлен")
 
     status_text = f"📝 *Создание мероприятия*\n\n"
     status_text += f"📝 Название: {escape_markdown(title)}\n"
     status_text += f"📅 Дата: {event_date}\n"
     status_text += f"📄 Описание: {escape_markdown(description)}\n"
+    status_text += f"📍 Адрес: {escape_markdown(address)}\n"
 
     if attendee_limit is not None:
         status_text += f"👥 Лимит участников: {attendee_limit}\n"
@@ -63,11 +69,15 @@ def format_event_edit_status(user_data: dict, original_event: dict) -> str:
     image_file_id = user_data.get(
         "event_image_file_id", original_event.get("image_file_id")
     )
+    address = user_data.get(
+        "event_address", original_event.get("address", "Не установлен")
+    )
 
     status_text = f"✏️ *Редактирование мероприятия*\n\n"
     status_text += f"📝 Название: {escape_markdown(title)}\n"
     status_text += f"📅 Дата: {event_date}\n"
     status_text += f"📄 Описание: {escape_markdown(description)}\n"
+    status_text += f"📍 Адрес: {escape_markdown(address)}\n"
 
     if attendee_limit is not None:
         status_text += f"👥 Лимит участников: {attendee_limit}\n"
@@ -291,13 +301,20 @@ def format_notification_status(
 
 
 def format_simple_event_message(
-    title: str, description: str, event_date: str, attendee_limit: int = None
+    title: str,
+    description: str,
+    event_date: str,
+    attendee_limit: int = None,
+    address: str = None,
 ) -> str:
     """Format simple event message without RSVP stats"""
     message = f"*{escape_markdown(title)}*\n\n"
     if description:
         message += f"📝 {escape_markdown(description)}\n\n"
     message += f"📅 Дата: {event_date}\n"
+
+    if address:
+        message += f"📍 Адрес: {escape_markdown(address)}\n"
 
     if attendee_limit:
         # Get current registration count

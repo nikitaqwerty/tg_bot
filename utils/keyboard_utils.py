@@ -107,6 +107,11 @@ def create_event_creation_keyboard(user_data: dict = None) -> InlineKeyboardMark
                 "👥 Установить лимит участников", callback_data="create_limit"
             )
         ],
+        [
+            InlineKeyboardButton(
+                "📍 Установить адрес мероприятия", callback_data="create_address"
+            )
+        ],
     ]
 
     # Add image-related buttons based on current state
@@ -176,6 +181,11 @@ def create_event_edit_keyboard(user_data: dict = None) -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton(
                 "👥 Изменить лимит участников", callback_data="edit_limit"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "📍 Изменить адрес мероприятия", callback_data="edit_address"
             )
         ],
     ]

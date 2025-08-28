@@ -166,6 +166,28 @@ class MessageHandlers:
                     "Пример: 25"
                 )
 
+        elif waiting_for == "event_address":
+            # Handle address input
+            address = user_input.strip()
+            if address:
+                self.bot.user_data[user_id]["event_address"] = address
+                await update.message.reply_text(
+                    f"✅ Адрес установлен: {address}\n\n"
+                    "Теперь вы можете продолжить настройку мероприятия или вернуться в меню.",
+                    reply_markup=create_event_creation_continue_keyboard(),
+                )
+            else:
+                # Empty address - set to None
+                self.bot.user_data[user_id]["event_address"] = None
+                await update.message.reply_text(
+                    "✅ Адрес очищен\n\n"
+                    "Теперь вы можете продолжить настройку мероприятия или вернуться в меню.",
+                    reply_markup=create_event_creation_continue_keyboard(),
+                )
+
+            self.bot.user_data[user_id]["waiting_for"] = None
+            self.bot.user_data[user_id]["creating_event"] = False  # Clear creation mode
+
         elif waiting_for == "event_image":
             # Handle image attachment
             if update.message.photo:
@@ -278,6 +300,28 @@ class MessageHandlers:
                     "❌ Неверный формат лимита. Пожалуйста, введите положительное число или 0 для снятия лимита.\n"
                     "Пример: 25"
                 )
+
+        elif waiting_for == "edit_event_address":
+            # Handle address input for editing
+            address = user_input.strip()
+            if address:
+                self.bot.user_data[user_id]["event_address"] = address
+                await update.message.reply_text(
+                    f"✅ Адрес изменен: {address}\n\n"
+                    "Теперь вы можете продолжить редактирование или сохранить изменения.",
+                    reply_markup=create_back_to_admin_keyboard(),
+                )
+            else:
+                # Empty address - set to None
+                self.bot.user_data[user_id]["event_address"] = None
+                await update.message.reply_text(
+                    "✅ Адрес очищен\n\n"
+                    "Теперь вы можете продолжить редактирование или сохранить изменения.",
+                    reply_markup=create_back_to_admin_keyboard(),
+                )
+
+            self.bot.user_data[user_id]["waiting_for"] = None
+            self.bot.user_data[user_id]["editing_event"] = False  # Clear editing mode
 
         elif waiting_for == "edit_event_image":
             # Handle image attachment

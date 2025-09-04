@@ -1,3 +1,5 @@
 .env
 *.pyc
 events.db
+bot.log
+config.env

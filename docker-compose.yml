@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  telegram-bot:
+    build: .
+    container_name: event-telegram-bot
+    restart: unless-stopped
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_IDS=${ADMIN_IDS}
+      - CHANNEL_ID=${CHANNEL_ID}
+    volumes:
+      - ./data:/app/data
+      - ./bot.log:/app/bot.log
+    networks:
+      - bot-network
+
+networks:
+  bot-network:
+    driver: bridge
+
+volumes:
+  bot-data:
+    driver: local

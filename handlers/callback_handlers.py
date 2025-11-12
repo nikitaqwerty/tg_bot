@@ -122,7 +122,7 @@ class CallbackHandlers:
             return
 
         event_id = int(parts[1])
-        response = parts[2]  # 'иду' or 'не иду'
+        response = parts[2]  # 'иду'
         user = query.from_user
 
         # Get event details first
@@ -133,9 +133,16 @@ class CallbackHandlers:
 
         title, description, event_date, attendee_limit, _, address = event
 
-        # Check if event is at capacity (only for positive responses)
-        if response == "иду" and not db.is_user_registered(event_id, user.id):
-            if db.is_event_at_capacity(event_id):
+        # Check if event is at capacity (only for positive responses and NEW users)
+        if response == "иду":
+            # Check if user has already responded via RSVP (not just registrations table)
+            user_already_responded = (
+                db.get_user_rsvp_response(event_id, user.id) is not None
+            )
+
+            # Only block NEW users if event is at capacity
+            # Users who already responded can change their response
+            if not user_already_responded and db.is_event_at_capacity(event_id):
                 await query.answer(
                     f"❌ К сожалению, мероприятие '{title}' уже заполнено. "
                     f"Достигнут лимит участников ({attendee_limit})."
@@ -426,8 +433,8 @@ class CallbackHandlers:
         attending_users = db.get_attending_users(event_id)
 
         text = f"📊 *Статистика RSVP для '{event[0]}'*\n📅 Дата: {event[2]}\n\n"
-        text += f"✅ иду: {stats['иду']}\n❌ не иду: {stats['не иду']}\n\n"
-        text += "Всего ответов: " + str(stats["иду"] + stats["не иду"])
+        text += f"✅ иду: {stats['иду']}\n\n"
+        text += "Всего ответов: " + str(stats["иду"])
 
         if attending_users:
             text += f"\n\n👥 *Участники:*\n"

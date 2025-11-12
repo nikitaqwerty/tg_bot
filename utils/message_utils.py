@@ -247,8 +247,8 @@ def format_event_users_list(
 def format_rsvp_stats(event_title: str, event_date: str, stats: dict) -> str:
     """Format RSVP statistics message"""
     text = f"📊 *Статистика RSVP для '{escape_markdown(event_title)}'*\n📅 Дата: {event_date}\n\n"
-    text += f"✅ иду: {stats['иду']}\n❌ не иду: {stats['не иду']}\n\n"
-    text += "Всего ответов: " + str(stats["иду"] + stats["не иду"])
+    text += f"✅ иду: {stats['иду']}\n\n"
+    text += "Всего ответов: " + str(stats["иду"])
     return text
 
 

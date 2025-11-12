@@ -70,7 +70,7 @@ class DatabaseManager:
                     user_id INTEGER,
                     username TEXT,
                     first_name TEXT,
-                    response TEXT CHECK(response IN ('иду', 'не иду')),
+                    response TEXT CHECK(response IN ('иду')),
                     responded_at TEXT,
                     FOREIGN KEY (event_id) REFERENCES events (id),
                     UNIQUE(event_id, user_id)
@@ -363,7 +363,7 @@ class DatabaseManager:
             )
             results = cursor.fetchall()
 
-            stats = {"иду": 0, "не иду": 0}
+            stats = {"иду": 0}
             for response, count in results:
                 stats[response] = count
 

@@ -20,10 +20,6 @@ def create_rsvp_keyboard(event_id: int, user_id: int = None) -> InlineKeyboardMa
                 f"✅ иду ({stats['иду']}){' ← Вы' if user_response == 'иду' else ''}",
                 callback_data=f"rsvp_{event_id}_иду",
             ),
-            InlineKeyboardButton(
-                f"❌ не иду ({stats['не иду']}){' ← Вы' if user_response == 'не иду' else ''}",
-                callback_data=f"rsvp_{event_id}_не иду",
-            ),
         ]
     ]
     return InlineKeyboardMarkup(keyboard)

@@ -211,11 +211,8 @@ def format_registrations_list(events: List[Tuple]) -> str:
         attending_usernames = db.get_attending_usernames(event_id)
 
         if attending_usernames:
-            # Escape special Markdown characters in usernames
-            escaped_usernames = [
-                escape_markdown(username) for username in attending_usernames
-            ]
-            text += f"✅ Участники: {', '.join(escaped_usernames)}\n"
+            # Don't escape usernames - they display correctly in Markdown v1
+            text += f"✅ Участники: {', '.join(attending_usernames)}\n"
         else:
             text += "✅ Участники: Пока нет подтверждений участия\n"
 

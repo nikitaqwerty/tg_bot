@@ -588,7 +588,7 @@ class AdminHandlers:
         text = format_registrations_list(events)
         await query.edit_message_text(
             text,
-            parse_mode=ParseMode.MARKDOWN_V2,
+            parse_mode=ParseMode.MARKDOWN,
             reply_markup=create_back_to_admin_keyboard(),
         )
 

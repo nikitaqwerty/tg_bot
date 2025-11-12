@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class DatabaseManager:
     """Database operations for the Telegram Event Bot"""
 
-    def __init__(self, database_path: str = "events.db"):
+    def __init__(self, database_path: str = "data/events.db"):
         self.database_path = database_path
         self.init_db()
 

@@ -17,7 +17,7 @@ class Config:
         self.CHANNEL_ID = self._parse_channel_id(os.getenv("CHANNEL_ID"))
 
         # Database configuration
-        self.DATABASE_PATH = "events.db"
+        self.DATABASE_PATH = os.getenv("DATABASE_PATH", "data/events.db")
 
         # Validation
         self._validate_config()

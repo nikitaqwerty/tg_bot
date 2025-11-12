@@ -17,9 +17,24 @@ echo "🚀 Starting deployment of Telegram Event Bot..."
 echo "📁 Creating project directory on remote server..."
 ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} "mkdir -p ${REMOTE_PATH}"
 
-# Copy files to remote server
+# Copy files to remote server (excluding database and unnecessary files)
 echo "📤 Copying project files to remote server..."
-scp -o StrictHostKeyChecking=no -r . ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
+echo "⚠️  Excluding database files to preserve production data..."
+rsync -avz --progress \
+  --exclude 'data/' \
+  --exclude '*.db' \
+  --exclude '__pycache__/' \
+  --exclude '*.pyc' \
+  --exclude '.DS_Store' \
+  --exclude 'bot.log' \
+  --exclude '.git/' \
+  --exclude '.gitignore' \
+  --exclude 'venv/' \
+  --exclude '.venv/' \
+  --exclude '*.swp' \
+  --exclude '*.swo' \
+  -e "ssh -o StrictHostKeyChecking=no" \
+  . ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
 
 # Connect to remote server and setup
 echo "🔧 Setting up Docker and deploying on remote server..."
@@ -46,8 +61,19 @@ ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} << EOF
 
     cd ${REMOTE_PATH}
 
-    echo "🔧 Creating data directory..."
+    echo "🔧 Ensuring data directory exists..."
     mkdir -p data
+    
+    # Backup database if it exists
+    if [ -f data/events.db ]; then
+        echo "💾 Backing up existing database..."
+        cp data/events.db data/events.db.backup.\$(date +%Y%m%d_%H%M%S)
+        echo "✅ Database backed up successfully"
+        # Keep only last 5 backups
+        ls -t data/events.db.backup.* 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null || true
+    else
+        echo "ℹ️  No existing database found (first deployment)"
+    fi
 
     echo "⚙️  Setting up environment file..."
     if [ ! -f .env ]; then

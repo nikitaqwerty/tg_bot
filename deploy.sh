@@ -64,6 +64,12 @@ ssh -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} << EOF
     echo "🔧 Ensuring data directory exists..."
     mkdir -p data
     
+    # Fix permissions for Docker non-root user
+    # The bot runs as UID 1000 inside the container (botuser)
+    echo "🔐 Setting permissions on data directory..."
+    chown -R 1000:1000 data
+    chmod -R 755 data
+    
     # Backup database if it exists
     if [ -f data/events.db ]; then
         echo "💾 Backing up existing database..."
